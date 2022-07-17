@@ -1,0 +1,24 @@
+# criu-config.yaml
+# This configuration file determines which criu binaries and libraries to search 
+# for on the host system when the --criu option is invoked.  You can edit it if
+# you have different binaries and libraries on your host system. 
+
+# List binaries to bind into the container here
+# In shared environments you should ensure that permissions on these files 
+# exclude writing by non-privileged users.  
+bins:
+  - "criu"
+  - "criu-ns"
+  - "compel"
+  - "crit"
+
+# List libraries to bind into the container here. Library names must end in ".so"
+libs:
+  - "libcompel.so"
+  - "libcompel.a"
+  - "libnftables.so"
+  - "libprotobuf-c.so"
+  - "libnl-3.so"
+  - "libnet.so"
+  - "libnftnl.so"
+  - "libjansson.so"

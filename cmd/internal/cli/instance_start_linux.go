@@ -22,6 +22,7 @@ func init() {
 		cmdManager.RegisterFlagForCmd(&instanceStartPidFileFlag, instanceStartCmd)
 		cmdManager.RegisterFlagForCmd(&actionDMTCPLaunchFlag, instanceStartCmd)
 		cmdManager.RegisterFlagForCmd(&actionDMTCPRestartFlag, instanceStartCmd)
+		cmdManager.RegisterFlagForCmd(&actionCRIULaunchFlag, instanceStartCmd)
 	})
 }
 

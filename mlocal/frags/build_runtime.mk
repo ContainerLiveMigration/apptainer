@@ -150,3 +150,14 @@ $(dmtcp_conf_INSTALL): $(dmtcp_conf)
 	$(V)install -m 0644 $< $@
 
 INSTALLFILES += $(dmtcp_conf_INSTALL)
+
+# criu  config file
+criu_conf := $(SOURCEDIR)/etc/criu-conf.yaml
+
+criu_conf_INSTALL := $(DESTDIR)$(SYSCONFDIR)/apptainer/criu-conf.yaml
+$(criu_conf_INSTALL): $(criu_conf)
+	@echo " INSTALL" $@
+	$(V)umask 0022 && mkdir -p $(@D)
+	$(V)install -m 0644 $< $@
+
+INSTALLFILES += $(criu_conf_INSTALL)

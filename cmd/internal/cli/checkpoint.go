@@ -16,6 +16,7 @@ import (
 
 	"github.com/apptainer/apptainer/docs"
 	"github.com/apptainer/apptainer/internal/pkg/checkpoint/dmtcp"
+	"github.com/apptainer/apptainer/internal/pkg/checkpoint/criu"
 	"github.com/apptainer/apptainer/internal/pkg/instance"
 	"github.com/apptainer/apptainer/pkg/cmdline"
 	"github.com/apptainer/apptainer/pkg/sylog"
@@ -97,6 +98,21 @@ var CheckpointCreateCmd = &cobra.Command{
 		}
 
 		_, err = m.Create(name)
+		if err != nil {
+			sylog.Fatalf("Failed to create checkpoint: %s", err)
+		}
+
+		// TODO: maybe we can merge criu and dmtcp dir
+		sylog.Infof("Checkpoint %q created.", name)
+
+		m2 := criu.NewManager()
+
+		_, err = m2.Get(name)
+		if err == nil {
+			sylog.Fatalf("Checkpoint %q already exists.", name)
+		}
+
+		_, err = m2.Create(name)
 		if err != nil {
 			sylog.Fatalf("Failed to create checkpoint: %s", err)
 		}

@@ -22,6 +22,7 @@ import (
 
 	"github.com/apptainer/apptainer/internal/pkg/buildcfg"
 	"github.com/apptainer/apptainer/internal/pkg/checkpoint/dmtcp"
+	"github.com/apptainer/apptainer/internal/pkg/checkpoint/criu"
 	"github.com/apptainer/apptainer/internal/pkg/image/unpacker"
 	"github.com/apptainer/apptainer/internal/pkg/instance"
 	"github.com/apptainer/apptainer/internal/pkg/plugin"
@@ -895,11 +896,12 @@ func setGPUBinds(engineConfig *apptainerConfig.EngineConfig, libs, bins, ipcs []
 
 // SetCheckpointConfig sets EngineConfig entries to bind the provided list of libs and bins.
 func SetCheckpointConfig(engineConfig *apptainerConfig.EngineConfig) error {
-	if DMTCPLaunch == "" && DMTCPRestart == "" {
-		return nil
+	if DMTCPLaunch != "" || DMTCPRestart != "" {
+		injectDMTCPConfig(engineConfig)
+	} else if CRIULaunch != "" {
+		injectCRIUConfig(engineConfig)
 	}
-
-	return injectDMTCPConfig(engineConfig)
+	return nil
 }
 
 func injectDMTCPConfig(engineConfig *apptainerConfig.EngineConfig) error {
@@ -939,6 +941,55 @@ func injectDMTCPConfig(engineConfig *apptainerConfig.EngineConfig) error {
 	engineConfig.AppendFilesPath(bins...)
 	engineConfig.AppendLibrariesPath(libs...)
 	engineConfig.SetDMTCPConfig(config)
+
+	return nil
+}
+
+func injectCRIUConfig(engineConfig *apptainerConfig.EngineConfig) error {
+	sylog.Debugf("Injecting CRIU configuration")
+	criu.QuickInstallationCheck()
+
+	bins, libs, err := criu.GetPaths()
+	if err != nil {
+		return err
+	}
+	sylog.Debugf("criu bin is: %v, lib is: %v", bins, libs);
+
+	var config apptainerConfig.CRIUConfig
+	// if CRIUPRestart != "" {
+	// 	config = apptainerConfig.CRIUConfig{
+	// 		Enabled:    true,
+	// 		// Restart:    true,
+	// 		Checkpoint: CRIURestart,
+	// 		// Args:       dmtcp.RestartArgs(),
+	// 	}
+	// } else {
+		// config = apptainerConfig.CRIUConfig {
+			// Enabled:    true,
+			// Restart:    false,
+			// Checkpoint: DMTCPLaunch,
+			// Args:       dmtcp.LaunchArgs(),
+		// }
+	// }
+
+	if CRIULaunch != "" {
+		config = apptainerConfig.CRIUConfig{
+			Enabled: true,
+			Checkpoint: CRIULaunch,
+		}
+	}
+
+	m := criu.NewManager()
+	e, err := m.Get(config.Checkpoint)
+	if err != nil {
+		return err
+	}
+
+	sylog.Debugf("Injecting checkpoint state bind: %q", config.Checkpoint)
+	engineConfig.SetBindPath(append(engineConfig.GetBindPath(), e.BindPath()))
+	engineConfig.AppendFilesPath(bins...)
+	engineConfig.AppendLibrariesPath(libs...)
+	engineConfig.SetCRIUConfig(config)
 
 	return nil
 }
