@@ -15,11 +15,12 @@ import (
 	"text/tabwriter"
 
 	"github.com/apptainer/apptainer/docs"
-	"github.com/apptainer/apptainer/internal/pkg/checkpoint/dmtcp"
 	"github.com/apptainer/apptainer/internal/pkg/checkpoint/criu"
+	"github.com/apptainer/apptainer/internal/pkg/checkpoint/dmtcp"
 	"github.com/apptainer/apptainer/internal/pkg/instance"
 	"github.com/apptainer/apptainer/pkg/cmdline"
 	"github.com/apptainer/apptainer/pkg/sylog"
+	// "github.com/apptainer/apptainer/pkg/util/copy"
 	"github.com/spf13/cobra"
 )
 
@@ -34,11 +35,13 @@ func init() {
 		cmdManager.RegisterSubCmd(CheckpointCmd, CheckpointDeleteCmd)
 
 		cmdManager.RegisterFlagForCmd(&actionHomeFlag, CheckpointInstanceCmd)
+		cmdManager.RegisterFlagForCmd(&actionCRIUFlag, CheckpointInstanceCmd)
 	})
 }
 
 func checkpointPreRun(cmd *cobra.Command, args []string) {
 	dmtcp.QuickInstallationCheck()
+	criu.QuickInstallationCheck()
 }
 
 // CheckpointCmd represents the checkpoint command.
@@ -141,6 +144,12 @@ var CheckpointDeleteCmd = &cobra.Command{
 			sylog.Fatalf("Failed to delete checkpoint entries: %v", err)
 		}
 
+		criuMgr := criu.NewManager()
+		err = criuMgr.Delete(name)
+		if err != nil {
+			sylog.Fatalf("Failed to delete checkpoint entries: %v", err)
+		}
+
 		sylog.Infof("Checkpoint %q deleted.", name)
 	},
 
@@ -169,23 +178,47 @@ var CheckpointInstanceCmd = &cobra.Command{
 		if file.Checkpoint == "" {
 			sylog.Fatalf("This instance was not started with checkpointing.")
 		}
+		if UseCRIU {
+			m := criu.NewManager()
+			e, err := m.Get(file.Checkpoint)
+			if err != nil {
+				sylog.Fatalf("Failed to get checkpoint entry: %v", err)
+			}
 
-		m := dmtcp.NewManager()
+			sylog.Infof("Using checkpoint %q", e.Name())
+			pid, err := e.GetPid()
+			if err != nil {
+				sylog.Fatalf("Fail to parse pid of dump process %e", err)
+			}
+			// // backup the err file, because when call to the criu restore, it will check the size of open files
+			// err = copy.CopyFileContents(file.LogErrPath + criu.BackSuffix, file.LogErrPath)
+			// if err != nil {
+			// 	sylog.Fatalf("copy file, failed %e", err)
+			// }
 
-		e, err := m.Get(file.Checkpoint)
-		if err != nil {
-			sylog.Fatalf("Failed to get checkpoint entry: %v", err)
+			// err = copy.CopyFileContents(file.LogOutPath + criu.BackSuffix, file.LogOutPath)
+			// if err != nil {
+			// 	sylog.Fatalf("copy file, failed %e", err)
+			// }
+			a := append([]string{"/.singularity.d/actions/exec"}, criu.CheckpointArgs(pid)...)
+			// a = append([]string{"/.singularity.d/actions/exec"}, []string{"sh"}...)
+			execStarter(cmd, "instance://"+args[0], a, "")
+		} else {
+			m := dmtcp.NewManager()
+			e, err := m.Get(file.Checkpoint)
+			if err != nil {
+				sylog.Fatalf("Failed to get checkpoint entry: %v", err)
+			}
+
+			port, err := e.CoordinatorPort()
+			if err != nil {
+				sylog.Fatalf("Failed to parse port file for coordinator pord: %s", err)
+			}
+			
+			sylog.Infof("Using checkpoint %q", e.Name())
+			a := append([]string{"/.singularity.d/actions/exec"}, dmtcp.CheckpointArgs(port)...)
+			execStarter(cmd, "instance://"+args[0], a, "")
 		}
-
-		port, err := e.CoordinatorPort()
-		if err != nil {
-			sylog.Fatalf("Failed to parse port file for coordinator pord: %s", err)
-		}
-
-		sylog.Infof("Using checkpoint %q", e.Name())
-
-		a := append([]string{"/.singularity.d/actions/exec"}, dmtcp.CheckpointArgs(port)...)
-		execStarter(cmd, "instance://"+args[0], a, "")
 	},
 
 	Use:     docs.CheckpointInstanceUse,

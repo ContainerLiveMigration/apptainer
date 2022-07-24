@@ -32,6 +32,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/apptainer/apptainer/internal/pkg/checkpoint/criu"
 	"github.com/apptainer/apptainer/internal/pkg/checkpoint/dmtcp"
 	"github.com/apptainer/apptainer/internal/pkg/instance"
 	"github.com/apptainer/apptainer/internal/pkg/plugin"
@@ -61,6 +62,14 @@ const defaultShell = "/bin/sh"
 // is executed as root intentionally) as starter will set uid/euid/suid
 // to the targetUID (PrepareConfig will set it by calling starter.Config.SetTargetUID).
 func (e *EngineOperations) StartProcess(masterConnFd int) error {
+	// Otherwise the sid is master, criu can't find external sid.
+	if e.EngineConfig.GetCRIUConfig().Enabled {
+		if _, err := syscall.Setsid(); err != nil {
+			return fmt.Errorf("container process setsid failed, %e", err)
+		}
+	}
+
+	// Manage all signals.
 	// Manage all signals.
 	// Queue them until they're ready to be handled below.
 	// Use a channel size of two here, since we may receive SIGURG, which is
@@ -181,7 +190,8 @@ func (e *EngineOperations) StartProcess(masterConnFd int) error {
 				return nil
 			}
 		}
-
+		sylog.Debugf("current environment is %v", os.Environ())
+		sylog.Debugf("args is %v, env is %v", args, env)
 		return e.execProcess(args, env)
 	}
 
@@ -213,7 +223,14 @@ func (e *EngineOperations) StartProcess(masterConnFd int) error {
 			return fmt.Errorf("exec %s failed: %s", args[0], err)
 		}
 		cmdPid = cmd.Process.Pid
-
+		criuConfig := e.EngineConfig.GetCRIUConfig()
+		if criuConfig.Enabled && !criuConfig.Restart {
+			err := os.WriteFile(criu.ContainerStatePath + "/" + criu.PidFile, []byte(strconv.Itoa(cmdPid)), 0644)
+			if err != nil {
+				sylog.Warningf("write cmd pid to CRIU dir failed, %e", err)
+			}
+		}
+		// sylog.Infof("container spawned process pid is %d", cmdPid)
 		go func() {
 			errChan <- cmd.Wait()
 		}()
@@ -354,10 +371,23 @@ func (e *EngineOperations) PostStartProcess(ctx context.Context, pid int) error 
 		if err != nil {
 			return err
 		}
-
-		logErrPath, logOutPath, err := instance.GetLogFilePaths(name, instance.LogSubDir)
-		if err != nil {
-			return fmt.Errorf("could not find log paths: %s", err)
+		var logErrPath, logOutPath string
+		criuConfig := e.EngineConfig.GetCRIUConfig()
+		if criuConfig.Enabled {
+			m := criu.NewManager()
+			e, err := m.Get(criuConfig.Checkpoint)
+			if err != nil {
+				sylog.Fatalf("can't get %s, :%v", criuConfig.Checkpoint, err)
+			}
+			logErrPath, logOutPath, err = e.GetLogFilePaths(name)
+			if err != nil {
+				return fmt.Errorf("could not find log paths: %s", err)
+			}
+		} else {
+			logErrPath, logOutPath, err = instance.GetLogFilePaths(name, instance.LogSubDir)
+			if err != nil {
+				return fmt.Errorf("could not find log paths: %s", err)
+			}
 		}
 
 		file.User = pw.Name
@@ -367,6 +397,10 @@ func (e *EngineOperations) PostStartProcess(ctx context.Context, pid int) error 
 		file.LogErrPath = logErrPath
 		file.LogOutPath = logOutPath
 		file.Checkpoint = e.EngineConfig.GetDMTCPConfig().Checkpoint
+		if file.Checkpoint == "" {
+			file.Checkpoint = e.EngineConfig.GetCRIUConfig().Checkpoint
+		}
+
 
 		ip, err := e.getIP()
 		if err != nil {
@@ -799,6 +833,9 @@ func runActionScript(engineConfig *apptainerConfig.EngineConfig) ([]string, []st
 		if dmtcpConfig.Enabled {
 			argv = dmtcp.InjectArgs(dmtcpConfig, argv)
 			sylog.Debugf("Injected DMTCP args %+q", argv)
+		}
+		if engineConfig.GetCRIUConfig().Restart {
+			argv = criu.RestoreArgs()
 		}
 
 		cmd, err := shell.LookPath(ctx, argv[0])

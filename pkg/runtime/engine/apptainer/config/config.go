@@ -76,9 +76,10 @@ type DMTCPConfig struct {
 // container process checkpoint/restart behvaior.
 type CRIUConfig struct {
 	Enabled    bool     `json:"enabled,omitempty"`
-	// Restart    bool     `json:"restart,omitempty"`
+	Restart    bool     `json:"restart,omitempty"`
+	NeedPriv   bool     `json:"needPriv,omitempty"`
 	Checkpoint string   `json:"checkpoint,omitempty"`
-	// Args       []string `json:"args,omitempty"`
+	Args       []string `json:"args,omitempty"`
 }
 
 // JSONConfig stores engine specific configuration that is allowed to be set by the user.
@@ -145,7 +146,7 @@ type JSONConfig struct {
 	DeleteTempDir     string            `json:"deleteTempDir,omitempty"`
 	Umask             int               `json:"umask,omitempty"`
 	DMTCPConfig       DMTCPConfig       `json:"dmtcpConfig,omitempty"`
-	CRIUConfig        CRIUConfig        `json:criuConfig,omitempty`
+	CRIUConfig        CRIUConfig        `json:"criuConfig,omitempty"`
 }
 
 // SetImage sets the container image path to be used by EngineConfig.JSON.

@@ -10,10 +10,13 @@
 package cli
 
 import (
+	"syscall"
+
 	"github.com/apptainer/apptainer/docs"
 	"github.com/apptainer/apptainer/internal/app/apptainer"
 	"github.com/apptainer/apptainer/pkg/cmdline"
 	"github.com/apptainer/apptainer/pkg/sylog"
+	"github.com/prometheus/procfs"
 	"github.com/spf13/cobra"
 )
 
@@ -23,6 +26,7 @@ func init() {
 		cmdManager.RegisterFlagForCmd(&actionDMTCPLaunchFlag, instanceStartCmd)
 		cmdManager.RegisterFlagForCmd(&actionDMTCPRestartFlag, instanceStartCmd)
 		cmdManager.RegisterFlagForCmd(&actionCRIULaunchFlag, instanceStartCmd)
+		cmdManager.RegisterFlagForCmd(&actionCRIURestartFlag, instanceStartCmd)
 	})
 }
 
@@ -53,7 +57,30 @@ var instanceStartCmd = &cobra.Command{
 			execVM(cmd, image, a)
 			return
 		}
-
+		
+		// close some open fds to avoid criu dump error
+		if (CRIULaunch != "") {
+			procSelf, err := procfs.Self()
+			if err != nil {
+				sylog.Fatalf("can't open procfs, %e", err)
+			}
+			fds, err := procSelf.FileDescriptors()
+			if err != nil {
+				sylog.Fatalf("fail to get open files, %e", err)
+			}
+			targets, _ := procSelf.FileDescriptorTargets()
+			sylog.Debugf("%d == %d, open fds are %v, targets: %v", len(fds), len(targets), fds, targets)
+			for i, fd := range fds {
+				sylog.Debugf("fd is %v, target is %v", fd, targets[i])
+			}
+			for i, fd := range fds {
+				if fd > 2 && len(targets[i]) > 0 && targets[i][0] == '/' {
+					if syscall.Close(int(fd)) != nil {
+						sylog.Warningf("close fd %v %v failed, %e", fd, targets[i], err)
+					}
+				}
+			}
+		}
 		execStarter(cmd, image, a, name)
 
 		if instanceStartPidFile != "" {

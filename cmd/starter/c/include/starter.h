@@ -161,6 +161,10 @@ struct starter {
 
     /* bounding capability set will include caps needed by nvidia-container-cli */
     bool nvCCLICaps;
+
+    /* if it is doing cr by criu*/
+    bool needPriv;
+    bool criuLaunch;
 };
 
 /* engine configuration */

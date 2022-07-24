@@ -19,7 +19,9 @@ type Config struct {
 }
 
 const (
-	containerStatepath = "/.checkpoint"
+	ContainerStatePath = "/.checkpoint"
+	PidFile = "cmd.pid"
+	BackSuffix = ".back"
 	// portFile           = "coord.port"
 	// logFile            = "coord.log"
 )

@@ -185,6 +185,22 @@ func (c *Config) SetHybridWorkflow(hybrid bool) {
 	}
 }
 
+func (c *Config) SetNeedpriv(b bool) {
+	if b {
+		c.config.starter.needPriv = C.true
+	} else {
+		c.config.starter.needPriv = C.false
+	}
+}
+
+func (c *Config) SetCRIUlaunch(b bool) {
+	if b {
+		c.config.starter.criuLaunch = C.true
+	} else {
+		c.config.starter.criuLaunch = C.false
+	}
+}
+
 // SetAllowSetgroups allows use of setgroups syscall from user namespace.
 func (c *Config) SetAllowSetgroups(allow bool) {
 	if allow {

@@ -21,8 +21,8 @@ import (
 	"time"
 
 	"github.com/apptainer/apptainer/internal/pkg/buildcfg"
-	"github.com/apptainer/apptainer/internal/pkg/checkpoint/dmtcp"
 	"github.com/apptainer/apptainer/internal/pkg/checkpoint/criu"
+	"github.com/apptainer/apptainer/internal/pkg/checkpoint/dmtcp"
 	"github.com/apptainer/apptainer/internal/pkg/image/unpacker"
 	"github.com/apptainer/apptainer/internal/pkg/instance"
 	"github.com/apptainer/apptainer/internal/pkg/plugin"
@@ -710,9 +710,33 @@ func execStarter(cobraCmd *cobra.Command, image string, args []string, name stri
 	}
 
 	if engineConfig.GetInstance() {
-		stdout, stderr, err := instance.SetLogFile(name, int(uid), instance.LogSubDir)
-		if err != nil {
-			sylog.Fatalf("failed to create instance log files: %s", err)
+		var stderr, stdout *os.File
+		if CRIULaunch != "" {
+			m := criu.NewManager()
+			e, err := m.Get(CRIULaunch)
+			if err != nil {
+				sylog.Fatalf("can't get %v, %e", CRIULaunch, err)
+			}
+			stdout, stderr, err = e.SetLogFile(name, int(uid))
+			if err != nil {
+				sylog.Fatalf("fail to set log file, %e", err)
+			}
+		} else if CRIURestart != "" {
+			m := criu.NewManager()
+			e, err := m.Get(CRIURestart)
+			if err != nil {
+				sylog.Fatalf("can't get %v, %e", CRIURestart, err)
+			}
+			// e.RollBackLogFile(name)
+			stdout, stderr, err = e.GetLogFile(name)
+			if err != nil {
+				sylog.Fatalf("fail to get log file, %e", err)
+			}
+		} else {
+			stdout, stderr, err = instance.SetLogFile(name, int(uid), instance.LogSubDir)
+			if err != nil {
+				sylog.Fatalf("failed to create instance log files: %s", err)
+			}
 		}
 
 		start, err := stderr.Seek(0, io.SeekEnd)
@@ -898,7 +922,7 @@ func setGPUBinds(engineConfig *apptainerConfig.EngineConfig, libs, bins, ipcs []
 func SetCheckpointConfig(engineConfig *apptainerConfig.EngineConfig) error {
 	if DMTCPLaunch != "" || DMTCPRestart != "" {
 		injectDMTCPConfig(engineConfig)
-	} else if CRIULaunch != "" {
+	} else if CRIULaunch != "" || CRIURestart != "" || UseCRIU {
 		injectCRIUConfig(engineConfig)
 	}
 	return nil
@@ -953,30 +977,29 @@ func injectCRIUConfig(engineConfig *apptainerConfig.EngineConfig) error {
 	if err != nil {
 		return err
 	}
-	sylog.Debugf("criu bin is: %v, lib is: %v", bins, libs);
+	sylog.Debugf("criu bin is: %v, lib is: %v", bins, libs)
 
 	var config apptainerConfig.CRIUConfig
-	// if CRIUPRestart != "" {
-	// 	config = apptainerConfig.CRIUConfig{
-	// 		Enabled:    true,
-	// 		// Restart:    true,
-	// 		Checkpoint: CRIURestart,
-	// 		// Args:       dmtcp.RestartArgs(),
-	// 	}
-	// } else {
-		// config = apptainerConfig.CRIUConfig {
-			// Enabled:    true,
-			// Restart:    false,
-			// Checkpoint: DMTCPLaunch,
-			// Args:       dmtcp.LaunchArgs(),
-		// }
-	// }
-
 	if CRIULaunch != "" {
 		config = apptainerConfig.CRIUConfig{
-			Enabled: true,
+			Enabled:    true,
+			Restart:    false,
 			Checkpoint: CRIULaunch,
 		}
+	} else if CRIURestart != "" {
+		config = apptainerConfig.CRIUConfig{
+			Enabled:    true,
+			Restart:    true,
+			NeedPriv:   true,
+			Checkpoint: CRIURestart,
+			Args:       criu.RestoreArgs(),
+		}
+	} else if UseCRIU {
+		config = apptainerConfig.CRIUConfig{
+			NeedPriv: true,
+		}
+		engineConfig.SetCRIUConfig(config)
+		return nil
 	}
 
 	m := criu.NewManager()

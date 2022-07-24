@@ -1532,12 +1532,27 @@ __attribute__((constructor)) static void init(void) {
             verbosef("Don't execute RPC server, joining instance\n");
         }
 
-        debugf("Set container privileges\n");
-        current = get_process_capabilities();
-        apply_privileges(&sconfig->container.privileges, current);
-        set_parent_death_signal(SIGKILL);
-        free(current);
-
+        if (sconfig->starter.criuLaunch) {
+            verbosef("criu launch write to the ns_last_pid");
+            int fd = open("/proc/sys/kernel/ns_last_pid", O_WRONLY);
+            int cnt = write(fd, "50\n", 3);
+            close(fd);
+            if (cnt != 3) {
+                fatalf("failed to write to /proc/sys/kernel/ns_last_pid");
+            }
+        }
+        if (!sconfig->starter.needPriv) {
+            debugf("Set container privileges\n");
+            current = get_process_capabilities();
+            apply_privileges(&sconfig->container.privileges, current);
+            set_parent_death_signal(SIGKILL);
+            free(current);
+        } else {
+            if (setuid(0) < 0) {
+                verbosef("set uid to 0 failed");
+            }
+            verbosef("doesn't apply privileges, user is %d\n", getuid());
+        }
         goexecute = STAGE2;
         /* continue execution with Go runtime in main_linux.go */
         return;

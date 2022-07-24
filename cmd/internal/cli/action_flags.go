@@ -43,6 +43,9 @@ var (
 	DMTCPLaunch      string
 	DMTCPRestart     string
 	CRIULaunch       string
+	CRIURestart      string
+
+	UseCRIU         bool
 
 	IsBoot          bool
 	IsFakeroot      bool
@@ -678,6 +681,26 @@ var actionCRIULaunchFlag = cmdline.Flag{
 	Name:         "criu-launch",
 	Usage:        "checkpoint for criu to save container process state to (experimental)",
 	EnvKeys:      []string{"CRIU_LAUNCH"},
+}
+
+// --criu-restart
+var actionCRIURestartFlag = cmdline.Flag{
+	ID:           "actionCRIUrestartFlag",
+	Value:        &CRIURestart,
+	DefaultValue: "",
+	Name:         "criu-restart",
+	Usage:        "checkpoint for criu to use to restart container process (experimental)",
+	EnvKeys:      []string{"CRIU_RESTART"},
+}
+
+// --criu
+var actionCRIUFlag = cmdline.Flag{
+	ID: "actionCRIUFlag",
+	Value: &UseCRIU,
+	DefaultValue: false,
+	Name: "criu",
+	Usage: "checkpoint and restore by CRIU (default with DMTCP)",
+	EnvKeys: []string{"USE_CRIU"},
 }
 
 func init() {
