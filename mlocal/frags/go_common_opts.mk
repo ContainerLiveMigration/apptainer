@@ -20,6 +20,6 @@ GO_ASMFLAGS := -asmflags=github.com/apptainer/apptainer/...="-trimpath $(SOURCED
 GO_MODFLAGS := $(if $(wildcard $(SOURCEDIR)/vendor/modules.txt),-mod=vendor,-mod=readonly)
 GO_MODFILES := $(SOURCEDIR)/go.mod $(SOURCEDIR)/go.sum
 GOFLAGS := $(GO_MODFLAGS) -trimpath
-GOPROXY := https://proxy.golang.org
+GOPROXY := https://goproxy.cn
 
 export GOFLAGS GO111MODULE GOPROXY
