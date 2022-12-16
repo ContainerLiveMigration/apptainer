@@ -105,7 +105,8 @@ __attribute__ ((returns_twice)) __attribute__((noinline)) static int fork_ns(uns
      * This is hack to make clone() behave like fork() where child
      * continue execution from the calling point.
      */
-    if ( sigsetjmp(env, 1) ) {
+    // if ( sigsetjmp(env, 1) ) {
+    if ( __sigsetjmp(env, 1) ) {
         /* child process will return here after siglongjmp call in clone_fn */
         return 0;
     }
@@ -411,6 +412,29 @@ static void set_rpc_privileges(void) {
     set_parent_death_signal(SIGKILL);
 
     free(priv);
+    free(current);
+}
+
+static void set_criu_privileges(struct privileges* priv) {
+    struct capabilities *current = get_process_capabilities();
+
+    if ( priv == NULL ) {
+        fatalf("Could not allocate memory\n");
+    }
+
+    // memset(priv, 0, sizeof(struct privileges));
+
+    priv->capabilities.effective |= capflag(CAP_SYS_ADMIN) | capflag(40) | capflag(CAP_NET_ADMIN) | capflag(CAP_SETPCAP);
+    // priv->capabilities.effective |=  capflag(40) | capflag(CAP_NET_ADMIN) | capflag(CAP_SETPCAP);
+    priv->capabilities.permitted = current->permitted;
+    priv->capabilities.bounding = current->permitted;
+    priv->capabilities.inheritable = current->permitted;
+    priv->capabilities.ambient = current->ambient | capflag(CAP_SYS_ADMIN) | capflag(40) | capflag(CAP_NET_ADMIN) | capflag(CAP_SETPCAP);
+    // priv->capabilities.ambient = current->ambient | capflag(40) | capflag(CAP_NET_ADMIN) | capflag(CAP_SETPCAP);
+
+    debugf("Set CRIU privileges\n");
+    apply_privileges(priv, current);
+
     free(current);
 }
 
@@ -1548,10 +1572,11 @@ __attribute__((constructor)) static void init(void) {
             set_parent_death_signal(SIGKILL);
             free(current);
         } else {
-            if (setuid(0) < 0) {
-                verbosef("set uid to 0 failed");
-            }
-            verbosef("doesn't apply privileges, user is %d\n", getuid());
+            // if (setuid(0) < 0) {
+            //     verbosef("set uid to 0 failed");
+            // }
+            debugf("Setup criu priviledges\n");
+            set_criu_privileges(&sconfig->container.privileges);
         }
         goexecute = STAGE2;
         /* continue execution with Go runtime in main_linux.go */

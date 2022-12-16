@@ -4,6 +4,7 @@ func CheckpointArgs(pid string) []string {
 	return []string{
 		"criu",
 		"dump",
+		"--unprivileged",
 		"--tree",
 		pid,
 		"--images-dir",
@@ -21,6 +22,7 @@ func RestoreArgs() []string {
 	return []string{
 		"criu",
 		"restore",
+		"--unprivileged",
 		"--shell-job",
 		"-v4",
 		"--images-dir",
