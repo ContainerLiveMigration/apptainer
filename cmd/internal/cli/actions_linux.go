@@ -15,6 +15,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime/trace"
 	"strconv"
 	"strings"
 	"syscall"
@@ -709,6 +710,13 @@ func execStarter(cobraCmd *cobra.Command, image string, args []string, name stri
 		c.(clicallback.ApptainerEngineConfig)(cfg)
 	}
 
+	closeTrace := func(_ *starter.Command) {
+		if Trace != "" {
+			trace.Stop()
+		}
+	}
+
+
 	if engineConfig.GetInstance() {
 		var stderr, stdout *os.File
 		if CRIULaunch != "" {
@@ -728,7 +736,7 @@ func execStarter(cobraCmd *cobra.Command, image string, args []string, name stri
 				sylog.Fatalf("can't get %v, %e", CRIURestart, err)
 			}
 			// e.RollBackLogFile(name)
-			stdout, stderr, err = e.GetLogFile(name)
+			stdout, stderr, err = e.SetRestoreLogFilePaths(name, int(uid))
 			if err != nil {
 				sylog.Fatalf("fail to get log file, %e", err)
 			}
@@ -746,6 +754,7 @@ func execStarter(cobraCmd *cobra.Command, image string, args []string, name stri
 
 		cmdErr := starter.Run(
 			procname,
+			Trace,
 			cfg,
 			starter.UseSuid(useSuid),
 			starter.WithStdout(stdout),
@@ -779,9 +788,11 @@ func execStarter(cobraCmd *cobra.Command, image string, args []string, name stri
 	} else {
 		err := starter.Exec(
 			procname,
+			Trace,
 			cfg,
 			starter.UseSuid(useSuid),
 			starter.LoadOverlayModule(loadOverlay),
+			closeTrace,
 		)
 		sylog.Fatalf("%s", err)
 	}

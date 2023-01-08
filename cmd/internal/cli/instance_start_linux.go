@@ -10,6 +10,7 @@
 package cli
 
 import (
+	"strings"
 	"syscall"
 
 	"github.com/apptainer/apptainer/docs"
@@ -75,6 +76,9 @@ var instanceStartCmd = &cobra.Command{
 			}
 			for i, fd := range fds {
 				if fd > 2 && len(targets[i]) > 0 && targets[i][0] == '/' {
+					if strings.Contains(targets[i], "cli-") {
+						continue
+					}
 					if syscall.Close(int(fd)) != nil {
 						sylog.Warningf("close fd %v %v failed, %e", fd, targets[i], err)
 					}

@@ -95,6 +95,7 @@ func fakerootExec(cmdArgs []string) {
 
 	err = starter.Exec(
 		"Apptainer fakeroot",
+		"",
 		cfg,
 		starter.UseSuid(useSuid),
 	)

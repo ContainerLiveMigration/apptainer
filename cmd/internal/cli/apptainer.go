@@ -72,6 +72,7 @@ var (
 	silent  bool
 	verbose bool
 	quiet   bool
+	Trace   string
 
 	configurationFile string
 )
@@ -84,6 +85,15 @@ var singDebugFlag = cmdline.Flag{
 	Name:         "debug",
 	ShortHand:    "d",
 	Usage:        "print debugging information (highest verbosity)",
+}
+
+// --Trace
+var singTraceFlag = cmdline.Flag{
+	ID:           "singTraceFlag",
+	Value:        &Trace,
+	DefaultValue: "",
+	Name:         "trace",
+	Usage:        "output trace output to a file",
 }
 
 // --nocolor
@@ -500,6 +510,7 @@ func Init(loadPlugins bool) {
 	}
 
 	cmdManager.RegisterFlagForCmd(&singDebugFlag, apptainerCmd)
+	cmdManager.RegisterFlagForCmd(&singTraceFlag, apptainerCmd)
 	cmdManager.RegisterFlagForCmd(&singNoColorFlag, apptainerCmd)
 	cmdManager.RegisterFlagForCmd(&singSilentFlag, apptainerCmd)
 	cmdManager.RegisterFlagForCmd(&singQuietFlag, apptainerCmd)

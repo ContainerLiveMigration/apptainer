@@ -41,5 +41,5 @@ func OciExec(containerID string, cmdArgs []string) error {
 	os.Clearenv()
 
 	procName := fmt.Sprintf("Apptainer OCI %s", containerID)
-	return starter.Exec(procName, commonConfig)
+	return starter.Exec(procName, "", commonConfig)
 }

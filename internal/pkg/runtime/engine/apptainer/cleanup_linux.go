@@ -192,6 +192,7 @@ func fakerootCleanup(path string) error {
 
 	return starter.Run(
 		"Apptainer fakeroot",
+		"",
 		cfg,
 		starter.UseSuid(true),
 	)

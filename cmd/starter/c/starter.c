@@ -12,6 +12,7 @@
 
 
 #define _GNU_SOURCE
+#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -112,6 +113,13 @@ __attribute__ ((returns_twice)) __attribute__((noinline)) static int fork_ns(uns
     }
     /* parent process */
     return clone(clone_fn, child_stack.ptr, (SIGCHLD|flags), env);
+}
+
+static long get_unix_nanosecs() {
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    long unix_nanosecs = ts.tv_sec * 1000000000 + ts.tv_nsec;
+    return unix_nanosecs;
 }
 
 static void priv_escalate(bool keep_fsuid) {
@@ -1150,6 +1158,7 @@ static void wait_child(const char *name, pid_t child_pid, bool noreturn) {
         verbosef("%s exited with status %d\n", name, exit_status);
         /* noreturn will exit the current process with corresponding status */
         if ( noreturn || exit_status != 0 ) {
+            infof("TIMESTAMP: exist time %ld\n", get_unix_nanosecs());
             exit(exit_status);
         }
     } else if ( WIFSIGNALED(status) ) {
@@ -1350,6 +1359,7 @@ __attribute__((constructor)) static void init(void) {
     debugf("Wait completion of stage1\n");
     wait_child("stage 1", process, false);
 
+    infof("TIMESTAMP: stage 1 finish: %ld\n", get_unix_nanosecs());
     /* change current working directory if requested by stage 1 */
     if ( sconfig->starter.workingDirectoryFd >= 0 ) {
         debugf("Applying stage 1 working directory\n");
@@ -1428,6 +1438,7 @@ __attribute__((constructor)) static void init(void) {
         }
     }
 
+    infof("TIMESTAMP: start set namespace: %ld\n", get_unix_nanosecs());
     userns = user_namespace_init(&sconfig->container.namespace);
     switch ( userns ) {
     case NO_NAMESPACE:
@@ -1517,6 +1528,7 @@ __attribute__((constructor)) static void init(void) {
             mount_namespace_init(&sconfig->container.namespace, false);
         }
 
+        infof("TIMESTAMP: finish set namespace: %ld\n", get_unix_nanosecs());
         if ( !sconfig->container.namespace.joinOnly ) {
             /* close master end of rpc communication socket */
             close(rpc_socket[0]);
@@ -1526,6 +1538,7 @@ __attribute__((constructor)) static void init(void) {
              * occurring in RPC server process also affect stage 2 process
              * which is the final container process
              */
+            infof("TIMESTAMP: start rpc server: %ld\n", get_unix_nanosecs());
             process = fork_ns(CLONE_FS);
             if ( process == 0 ) {
                 if ( sconfig->starter.isSuid && geteuid() == 0 ) {
@@ -1541,13 +1554,14 @@ __attribute__((constructor)) static void init(void) {
 
                 /* wait RPC server exits before running container process */
                 wait_child("rpc server", process, false);
-
                 if ( sconfig->starter.hybridWorkflow && sconfig->starter.isSuid ) {
                     /* make /proc/self readable by user to join instance without SUID workflow */
                     if ( prctl(PR_SET_DUMPABLE, 1) < 0 ) {
                         fatalf("Failed to set process dumpable: %s\n", strerror(errno));
                     }
                 }
+                infof("TIMESTAMP: finish rpc server: %ld\n", get_unix_nanosecs());
+                infof("TIMESTAMP: finish set rootfs: %ld\n", get_unix_nanosecs());
             } else {
                 fatalf("Fork failed: %s\n", strerror(errno));
             }
@@ -1651,6 +1665,8 @@ __attribute__((constructor)) static void init(void) {
             /* child has exited before sending data */
             wait_child("stage 2", sconfig->container.pid, true);
         }
+
+        infof("TIMESTAMP: finish namespaces initialization: %ld\n", get_unix_nanosecs());
 
         /* engine requested to propagate mount to container */
         if ( sconfig->starter.masterPropagateMount && userns != ENTER_NAMESPACE ) {

@@ -17,6 +17,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"runtime/trace"
 	"strings"
 	"syscall"
 
@@ -158,6 +159,7 @@ func Master(rpcSocket, masterSocket int, containerPid int, e *engine.Engine) {
 	signal.Reset()
 
 	exitCode := 0
+	trace.Stop()
 
 	if status.Signaled() {
 		s := status.Signal()

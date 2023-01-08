@@ -18,7 +18,10 @@ package main
 import "C"
 
 import (
+	"os"
 	"runtime"
+	"runtime/trace"
+	"strings"
 	"unsafe"
 
 	"github.com/apptainer/apptainer/internal/app/starter"
@@ -94,13 +97,44 @@ func init() {
 	// this is mainly to reduce memory footprint
 	runtime.GOMAXPROCS(1)
 }
-
+var f *os.File
 // main function is executed after starter.c init function.
 // Depending on the value of goexecute from starter.c Go will act differently,
 // e.g. it may launch container process or spawn a container monitor. Thus
 // Go runtime appears to be in a different environment based on the current
 // execution stage.
 func main() {
+	// pwd, err := os.Getwd()
+	// if err != nil {
+	// 	sylog.Fatalf("Failed to get current working directory: %s", err)
+	// }
+	// sylog.Debugf("pwd is %v \n", pwd)
+	sylog.Debugf("argvs: %v \n", os.Args)
+
+	if len(os.Args) >= 2 && strings.HasPrefix(os.Args[1], "--trace=") {
+		traceName := os.Args[1][len("--trace="):]
+		fileName := "starter-"
+		switch C.goexecute {
+		case C.STAGE1:
+			fileName += "stage1"
+		case C.STAGE2:
+			fileName += "stage2"
+		case C.MASTER:
+			fileName += "master"
+		case C.RPC_SERVER:
+			fileName += "rpcserver"
+		}
+		fileName += "-"+ traceName + ".out"
+		var err error
+		if f, err = os.Create(fileName); err != nil {
+			sylog.Errorf("Failed to create trace file: %s", err)
+		} else {
+			trace.Start(f)
+			defer trace.Stop()
+			// defer f.Close()
+		}
+	}
+
 	// spawn a goroutine to use mainthread later
 	go startup()
 

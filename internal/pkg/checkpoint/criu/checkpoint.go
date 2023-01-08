@@ -83,6 +83,45 @@ func (e *Entry) SetLogFile(name string, uid int) (*os.File, *os.File, error) {
 	return stdout, stderr, nil
 }
 
+// GetLogFilePaths returns the paths of log files containing
+// .err, .out streams, respectively
+func (e *Entry) SetRestoreLogFilePaths(name string, uid int) (*os.File, *os.File, error) {
+	path := e.getLogDir()
+	stderrPath := filepath.Join(path, name+".restore.err")
+	stdoutPath := filepath.Join(path, name+".restore.out")
+
+	oldumask := syscall.Umask(0)
+	defer syscall.Umask(oldumask)
+
+	if err := os.MkdirAll(filepath.Dir(stderrPath), 0o700); err != nil {
+		return nil, nil, err
+	}
+	if err := os.MkdirAll(filepath.Dir(stdoutPath), 0o700); err != nil {
+		return nil, nil, err
+	}
+
+	stderr, err := os.OpenFile(stderrPath, os.O_RDWR|os.O_CREATE|os.O_APPEND|syscall.O_NOFOLLOW, 0o644)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	stdout, err := os.OpenFile(stdoutPath, os.O_RDWR|os.O_CREATE|os.O_APPEND|syscall.O_NOFOLLOW, 0o644)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if uid != os.Getuid() || uid == 0 {
+		if err := stderr.Chown(uid, os.Getgid()); err != nil {
+			return nil, nil, err
+		}
+		if err := stdout.Chown(uid, os.Getgid()); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	return stdout, stderr, nil
+}
+
 func (e *Entry) RollBackLogFile(name string) error {
 	path := e.getLogDir()
 	stderrPath := filepath.Join(path, name+".err")
@@ -111,8 +150,36 @@ func (e *Entry) GetLogFilePaths(name string) (string, string, error) {
 
 // GetLogFilePaths returns the paths of log files containing
 // .err, .out streams, respectively
+func (e *Entry) GetRestoreLogFilePaths(name string) (string, string, error) {
+	path  := e.getLogDir()
+	logErrPath := filepath.Join(path, name+".restore.err")
+	logOutPath := filepath.Join(path, name+".restore.out")
+
+	return logErrPath, logOutPath, nil
+}
+
+// GetLogFilePaths returns the paths of log files containing
+// .err, .out streams, respectively
 func (e *Entry) GetLogFile(name string) (*os.File, *os.File, error) {
 	logErrPath, logOutPath, _ := e.GetLogFilePaths(name)
+	// var logOut, logErr *os.Filee
+	logOut, err := os.OpenFile(logOutPath, os.O_RDWR, 0)
+	if err != nil {
+		sylog.Warningf("open logout %s failed, %e", logOutPath, err)
+		return nil, nil, err
+	}
+	logErr, err := os.OpenFile(logOutPath, os.O_RDWR, 0)
+	if err != nil {
+		sylog.Warningf("open logErr %s failed, %e", logErrPath, err)
+		return nil, nil, err
+	}
+	return logOut, logErr, nil
+}
+
+// GetLogFilePaths returns the paths of log files containing
+// .err, .out streams, respectively
+func (e *Entry) GetRestoreLogFile(name string) (*os.File, *os.File, error) {
+	logErrPath, logOutPath, _ := e.GetRestoreLogFilePaths(name)
 	// var logOut, logErr *os.Filee
 	logOut, err := os.OpenFile(logOutPath, os.O_RDWR, 0)
 	if err != nil {

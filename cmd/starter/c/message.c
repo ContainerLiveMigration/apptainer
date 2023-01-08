@@ -145,8 +145,8 @@ void _print(int level, const char *function, const char *file_in, char *format, 
             break;
         case INFO:
             prefix = "INFO";
-            color = "";
-            color_reset = "";
+            color = ANSI_COLOR_BLUE;
+            color_reset = ANSI_COLOR_RESET;
             break;
         default:
             prefix = "VERBOSE";
@@ -179,13 +179,13 @@ void _print(int level, const char *function, const char *file_in, char *format, 
             }
             header_string[length-1] = '\0';
         } else {
-            snprintf(header_string, 15, "%s%-7s: ", color, prefix);
+            snprintf(header_string, 15, "%s%s: ", color, prefix);
         }
 
         if ( level == INFO && messagelevel == INFO ) {
-            printf("%s%s", message, color_reset);
+            fprintf(stderr, "%-14s%s%s", header_string, color_reset, message);
         } else if ( level == INFO ) {
-            printf("%s%s%s", header_string, message, color_reset);
+            fprintf(stderr, "%s%s%s", header_string, message, color_reset);
         } else {
             fprintf(stderr, "%s%s%s", header_string, message, color_reset);
         }

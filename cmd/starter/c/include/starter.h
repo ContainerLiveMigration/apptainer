@@ -22,6 +22,7 @@
 #define verbosef(b...)   apptainer_message(VERBOSE, b)
 #define warningf(b...)   apptainer_message(WARNING, b)
 #define errorf(b...)     apptainer_message(ERROR, b)
+#define infof(b...)      apptainer_message(INFO, b)
 
 #define MAX_MAP_SIZE        4096
 #define MAX_PATH_SIZE       PATH_MAX

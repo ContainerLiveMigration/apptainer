@@ -12,6 +12,7 @@ package starter
 import (
 	"net"
 	"os"
+	"runtime/trace"
 
 	"github.com/apptainer/apptainer/internal/pkg/runtime/engine"
 	"github.com/apptainer/apptainer/pkg/sylog"
@@ -34,5 +35,6 @@ func RPCServer(socket int, e *engine.Engine) {
 	comm.Close()
 	engine.ServeRPCRequests(e, conn)
 
+	trace.Stop()
 	os.Exit(0)
 }

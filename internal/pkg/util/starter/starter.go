@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/apptainer/apptainer/internal/pkg/buildcfg"
 	"github.com/apptainer/apptainer/pkg/runtime/engine/config"
@@ -78,6 +79,15 @@ func LoadOverlayModule(load bool) CommandOp {
 	}
 }
 
+func AppendTraceEnv(trace string) CommandOp {
+	return func(c *Command) {
+		sylog.Debugf("APPTAINER_TRACE=%s\n", trace)
+		if trace != "" {
+			c.env = append(c.env, "APPTAINER_TRACE="+trace)
+		}
+	}
+}
+
 // Command a starter command to execute.
 type Command struct {
 	path   string
@@ -89,18 +99,23 @@ type Command struct {
 
 // Exec executes the starter binary in place of the caller if
 // there is no error. This function never returns on success.
-func Exec(name string, config *config.Common, ops ...CommandOp) error {
+func Exec(name string, trace string, config *config.Common, ops ...CommandOp) error {
 	c := new(Command)
 	if err := c.init(config, ops...); err != nil {
 		return fmt.Errorf("while initializing starter command: %s", err)
 	}
-	err := unix.Exec(c.path, []string{name}, c.env)
+	argv := []string{name}
+	if trace != "" {
+		argv = append(argv, "--trace="+trace)
+	}
+	sylog.Infof("TIMESTAMP: finish apptainer: %d\n", time.Now().UnixNano())
+	err := unix.Exec(c.path, argv, c.env)
 	return fmt.Errorf("while executing %s: %s", c.path, err)
 }
 
 // Run executes the starter binary and returns once starter
 // finished its execution.
-func Run(name string, config *config.Common, ops ...CommandOp) error {
+func Run(name string, trace string, config *config.Common, ops ...CommandOp) error {
 	c := new(Command)
 	if err := c.init(config, ops...); err != nil {
 		return fmt.Errorf("while initializing starter command: %s", err)
@@ -108,14 +123,19 @@ func Run(name string, config *config.Common, ops ...CommandOp) error {
 
 	cmd := exec.Command(c.path)
 	cmd.Args = []string{name}
+	if trace != "" {
+		cmd.Args = append(cmd.Args, "--trace="+trace)
+	}
 	cmd.Env = c.env
 	cmd.Stdin = c.stdin
 	cmd.Stdout = c.stdout
 	cmd.Stderr = c.stderr
-
+	sylog.Infof("TIMESTAMP: start starter: %d\n", time.Now().UnixNano())
+	
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("while running %s: %s", c.path, err)
 	}
+	sylog.Infof("TIMESTAMP: finish starter: %d\n", time.Now().UnixNano())
 	return nil
 }
 

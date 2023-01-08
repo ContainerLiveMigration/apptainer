@@ -11,7 +11,9 @@ package starter
 
 import (
 	"os"
+	"runtime/trace"
 	"syscall"
+	"time"
 
 	"github.com/apptainer/apptainer/internal/pkg/runtime/engine"
 	starterConfig "github.com/apptainer/apptainer/internal/pkg/runtime/engine/config/starter"
@@ -27,7 +29,6 @@ import (
 // extended attributes are already dropped by this moment.
 func StageOne(sconfig *starterConfig.Config, e *engine.Engine) {
 	sylog.Debugf("Entering stage 1\n")
-
 	if err := e.PrepareConfig(sconfig); err != nil {
 		sylog.Fatalf("%s\n", err)
 	}
@@ -35,7 +36,8 @@ func StageOne(sconfig *starterConfig.Config, e *engine.Engine) {
 	if err := sconfig.Write(e.Common); err != nil {
 		sylog.Fatalf("%s", err)
 	}
-
+	trace.Stop()
+	sylog.Infof("TIMESTAMP: finish stage 1: %d\n", time.Now().UnixNano())
 	os.Exit(0)
 }
 

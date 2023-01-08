@@ -695,12 +695,12 @@ var actionCRIURestartFlag = cmdline.Flag{
 
 // --criu
 var actionCRIUFlag = cmdline.Flag{
-	ID: "actionCRIUFlag",
-	Value: &UseCRIU,
+	ID:           "actionCRIUFlag",
+	Value:        &UseCRIU,
 	DefaultValue: false,
-	Name: "criu",
-	Usage: "checkpoint and restore by CRIU (default with DMTCP)",
-	EnvKeys: []string{"USE_CRIU"},
+	Name:         "criu",
+	Usage:        "checkpoint and restore by CRIU (default with DMTCP)",
+	EnvKeys:      []string{"USE_CRIU"},
 }
 
 func init() {

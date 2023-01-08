@@ -77,6 +77,7 @@ func OciCreate(containerID string, args *OciArgs) error {
 	procName := fmt.Sprintf("Apptainer OCI %s", containerID)
 	return starter.Run(
 		procName,
+		"",
 		commonConfig,
 		starter.WithStdin(os.Stdin),
 		starter.WithStderr(os.Stderr),
