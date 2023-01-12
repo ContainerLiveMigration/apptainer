@@ -152,6 +152,7 @@ func (e *EngineOperations) PrepareConfig(starterConfig *starter.Config) error {
 		}
 	}
 
+	starterConfig.SetStartTime(e.EngineConfig.GetStartTime())
 	sylog.Debugf("set use criu as %v", e.EngineConfig.GetCRIUConfig().NeedPriv)
 	criuConfig := e.EngineConfig.GetCRIUConfig()
 	starterConfig.SetNeedpriv(criuConfig.NeedPriv)

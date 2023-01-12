@@ -147,6 +147,7 @@ type JSONConfig struct {
 	Umask             int               `json:"umask,omitempty"`
 	DMTCPConfig       DMTCPConfig       `json:"dmtcpConfig,omitempty"`
 	CRIUConfig        CRIUConfig        `json:"criuConfig,omitempty"`
+	StartTime         int64             `json:"startTime,omitempty"`
 }
 
 // SetImage sets the container image path to be used by EngineConfig.JSON.
@@ -834,7 +835,17 @@ func (e *EngineConfig) SetCRIUConfig(config CRIUConfig) {
 	e.JSON.CRIUConfig = config
 }
 
-// SetCRIUConfig sets the CRIU configuration for the engine to used for the container process.
+// GetCRIUConfig return the CRIU configuration for the engine to used for the container process.
 func (e *EngineConfig) GetCRIUConfig() CRIUConfig {
 	return e.JSON.CRIUConfig
+}
+
+// SetStartTime sets the start time
+func (e *EngineConfig) SetStartTime(start int64) {
+	e.JSON.StartTime = start
+}
+
+// getStartTime returns the start time
+func (e *EngineConfig) GetStartTime() int64 {
+	return e.JSON.StartTime
 }

@@ -166,6 +166,8 @@ struct starter {
     /* if it is doing cr by criu*/
     bool needPriv;
     bool criuLaunch;
+
+    int64_t startTime;
 };
 
 /* engine configuration */

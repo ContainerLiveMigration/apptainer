@@ -201,6 +201,10 @@ func (c *Config) SetCRIUlaunch(b bool) {
 	}
 }
 
+func (c *Config) SetStartTime(time int64) {
+	c.config.starter.startTime = C.long(time)
+}
+
 // SetAllowSetgroups allows use of setgroups syscall from user namespace.
 func (c *Config) SetAllowSetgroups(allow bool) {
 	if allow {

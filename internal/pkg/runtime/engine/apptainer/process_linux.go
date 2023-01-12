@@ -192,7 +192,8 @@ func (e *EngineOperations) StartProcess(masterConnFd int) error {
 		}
 		sylog.Debugf("current environment is %v", os.Environ())
 		sylog.Debugf("args is %v, env is %v", args, env)
-		sylog.Infof("TIMESTAMP: exec container process: %d\n", time.Now().UnixNano())
+		now := time.Now().UnixNano()
+		sylog.Infof("TIMESTAMP: exec container process: %d, accumulate time %d\n", now, now - e.EngineConfig.GetStartTime())
 		return e.execProcess(args, env)
 	}
 
@@ -214,7 +215,8 @@ func (e *EngineOperations) StartProcess(masterConnFd int) error {
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Setpgid: isInstance,
 		}
-		sylog.Infof("TIMESTAMP: start container process: %d\n", time.Now().UnixNano())
+		now := time.Now().UnixNano()
+		sylog.Infof("TIMESTAMP: start container process: %d, accumulate time: %d\n", now, now - e.EngineConfig.GetStartTime())
 		if err := cmd.Start(); err != nil {
 			if e, ok := err.(*os.PathError); ok {
 				if e.Err.(syscall.Errno) == syscall.ENOEXEC && args[0] != defaultShell {

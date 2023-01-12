@@ -45,6 +45,8 @@ var (
 	CRIULaunch       string
 	CRIURestart      string
 
+	StartTime        int64
+
 	UseCRIU         bool
 
 	IsBoot          bool

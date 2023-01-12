@@ -118,7 +118,6 @@ func (e *Entry) SetRestoreLogFilePaths(name string, uid int) (*os.File, *os.File
 			return nil, nil, err
 		}
 	}
-
 	return stdout, stderr, nil
 }
 

@@ -193,6 +193,8 @@ func execStarter(cobraCmd *cobra.Command, image string, args []string, name stri
 
 	engineConfig := apptainerConfig.NewConfig()
 
+	engineConfig.SetStartTime(StartTime)
+
 	imageArg := os.Getenv("IMAGE_ARG")
 	os.Unsetenv("IMAGE_ARG")
 	engineConfig.SetImageArg(imageArg)
@@ -783,6 +785,8 @@ func execStarter(cobraCmd *cobra.Command, image string, args []string, name stri
 		} else {
 			sylog.Verbosef("you will find instance output here: %s", stdout.Name())
 			sylog.Verbosef("you will find instance error here: %s", stderr.Name())
+			now := time.Now().UnixNano()
+			sylog.Infof("TIMESTAMP: instance finish start time %d, accumulate time %d\n", now, now-engineConfig.GetStartTime())
 			sylog.Infof("instance started successfully")
 		}
 	} else {

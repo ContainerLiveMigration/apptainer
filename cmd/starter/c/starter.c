@@ -66,6 +66,10 @@
 /* current starter configuration */
 struct starterConfig *sconfig;
 
+long long int check_config_time;
+long long int config_time;
+long long int exec_time;
+
 /* Socket process communication */
 int rpc_socket[2] = {-1, -1};
 int master_socket[2] = {-1, -1};
@@ -1158,7 +1162,8 @@ static void wait_child(const char *name, pid_t child_pid, bool noreturn) {
         verbosef("%s exited with status %d\n", name, exit_status);
         /* noreturn will exit the current process with corresponding status */
         if ( noreturn || exit_status != 0 ) {
-            infof("TIMESTAMP: exist time %ld\n", get_unix_nanosecs());
+            exec_time = get_unix_nanosecs();
+            infof("TIMESTAMP: exist time %lld, accumulate time %lld, exec_stage_time %lld\n", exec_time, exec_time - sconfig->starter.startTime, exec_time - config_time);
             exit(exit_status);
         }
     } else if ( WIFSIGNALED(status) ) {
@@ -1359,7 +1364,9 @@ __attribute__((constructor)) static void init(void) {
     debugf("Wait completion of stage1\n");
     wait_child("stage 1", process, false);
 
-    infof("TIMESTAMP: stage 1 finish: %ld\n", get_unix_nanosecs());
+    check_config_time = get_unix_nanosecs();
+    infof("TIMESTAMP: stage 1 finish: %lld, accumulate time: %lld, check_config_stage_time %lld\n", check_config_time, 
+        check_config_time - sconfig->starter.startTime ,check_config_time - sconfig->starter.startTime);
     /* change current working directory if requested by stage 1 */
     if ( sconfig->starter.workingDirectoryFd >= 0 ) {
         debugf("Applying stage 1 working directory\n");
@@ -1437,8 +1444,8 @@ __attribute__((constructor)) static void init(void) {
             fatalf("Failed to create communication socket: %s\n", strerror(errno));
         }
     }
-
-    infof("TIMESTAMP: start set namespace: %ld\n", get_unix_nanosecs());
+    long long int now = get_unix_nanosecs();
+    infof("TIMESTAMP: start set namespace: %lld, accumulate time %lld\n", now, now - sconfig->starter.startTime);
     userns = user_namespace_init(&sconfig->container.namespace);
     switch ( userns ) {
     case NO_NAMESPACE:
@@ -1527,8 +1534,8 @@ __attribute__((constructor)) static void init(void) {
             send_event(master_socket[1]);
             mount_namespace_init(&sconfig->container.namespace, false);
         }
-
-        infof("TIMESTAMP: finish set namespace: %ld\n", get_unix_nanosecs());
+        long long int now = get_unix_nanosecs();
+        infof("TIMESTAMP: finish set namespace: %lld, accumulate time %lld\n", now, now - sconfig->starter.startTime);
         if ( !sconfig->container.namespace.joinOnly ) {
             /* close master end of rpc communication socket */
             close(rpc_socket[0]);
@@ -1538,7 +1545,8 @@ __attribute__((constructor)) static void init(void) {
              * occurring in RPC server process also affect stage 2 process
              * which is the final container process
              */
-            infof("TIMESTAMP: start rpc server: %ld\n", get_unix_nanosecs());
+            long long int now = get_unix_nanosecs();
+            infof("TIMESTAMP: start rpc server: %lld, accumulate time %lld\n", now, now - sconfig->starter.startTime);
             process = fork_ns(CLONE_FS);
             if ( process == 0 ) {
                 if ( sconfig->starter.isSuid && geteuid() == 0 ) {
@@ -1560,8 +1568,9 @@ __attribute__((constructor)) static void init(void) {
                         fatalf("Failed to set process dumpable: %s\n", strerror(errno));
                     }
                 }
-                infof("TIMESTAMP: finish rpc server: %ld\n", get_unix_nanosecs());
-                infof("TIMESTAMP: finish set rootfs: %ld\n", get_unix_nanosecs());
+                long long int now = get_unix_nanosecs();
+                infof("TIMESTAMP: finish rpc server: %lld, accumulate time %lld\n", now, now - sconfig->starter.startTime);
+                // infof("TIMESTAMP: finish set rootfs: %ld\n", get_unix_nanosecs());
             } else {
                 fatalf("Fork failed: %s\n", strerror(errno));
             }
@@ -1592,6 +1601,8 @@ __attribute__((constructor)) static void init(void) {
             debugf("Setup criu priviledges\n");
             set_criu_privileges(&sconfig->container.privileges);
         }
+        config_time = get_unix_nanosecs();
+        infof("TIMESTAMP: finish all setup %lld, accumulate time %lld, config_stage_time %lld\n", config_time, config_time - sconfig->starter.startTime,config_time - check_config_time);
         goexecute = STAGE2;
         /* continue execution with Go runtime in main_linux.go */
         return;
@@ -1665,8 +1676,8 @@ __attribute__((constructor)) static void init(void) {
             /* child has exited before sending data */
             wait_child("stage 2", sconfig->container.pid, true);
         }
-
-        infof("TIMESTAMP: finish namespaces initialization: %ld\n", get_unix_nanosecs());
+        long long int now = get_unix_nanosecs();
+        infof("TIMESTAMP: finish namespaces initialization: %lld, accumulate time %lld\n", now, now - sconfig->starter.startTime);
 
         /* engine requested to propagate mount to container */
         if ( sconfig->starter.masterPropagateMount && userns != ENTER_NAMESPACE ) {

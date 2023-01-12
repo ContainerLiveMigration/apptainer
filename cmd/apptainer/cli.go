@@ -25,7 +25,9 @@ import (
 var TraceFile* os.File
 
 func main() {
-	sylog.Infof("start time: %s", time.Now().UnixNano())
+	startTime := time.Now().UnixNano()
+	cli.StartTime = startTime
+	sylog.Infof("TIMESTAMP: start time %d, accumulate time 0", startTime)
 
 	useragent.InitValue(buildcfg.PACKAGE_NAME, buildcfg.PACKAGE_VERSION)
 
