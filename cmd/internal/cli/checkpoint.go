@@ -20,6 +20,7 @@ import (
 	"github.com/apptainer/apptainer/internal/pkg/instance"
 	"github.com/apptainer/apptainer/pkg/cmdline"
 	"github.com/apptainer/apptainer/pkg/sylog"
+
 	// "github.com/apptainer/apptainer/pkg/util/copy"
 	"github.com/spf13/cobra"
 )
@@ -36,6 +37,7 @@ func init() {
 
 		cmdManager.RegisterFlagForCmd(&actionHomeFlag, CheckpointInstanceCmd)
 		cmdManager.RegisterFlagForCmd(&actionCRIUFlag, CheckpointInstanceCmd)
+		cmdManager.RegisterFlagForCmd(&actionCRIUPrivilegedFlag, CheckpointInstanceCmd)
 	})
 }
 
@@ -200,7 +202,7 @@ var CheckpointInstanceCmd = &cobra.Command{
 			// if err != nil {
 			// 	sylog.Fatalf("copy file, failed %e", err)
 			// }
-			a := append([]string{"/.singularity.d/actions/exec"}, criu.CheckpointArgs(pid)...)
+			a := append([]string{"/.singularity.d/actions/exec"}, criu.CheckpointArgs(pid, CRIUPrivileged)...)
 			// a = append([]string{"/.singularity.d/actions/exec"}, []string{"sh"}...)
 			execStarter(cmd, "instance://"+args[0], a, "")
 		} else {
@@ -214,7 +216,7 @@ var CheckpointInstanceCmd = &cobra.Command{
 			if err != nil {
 				sylog.Fatalf("Failed to parse port file for coordinator pord: %s", err)
 			}
-			
+
 			sylog.Infof("Using checkpoint %q", e.Name())
 			a := append([]string{"/.singularity.d/actions/exec"}, dmtcp.CheckpointArgs(port)...)
 			execStarter(cmd, "instance://"+args[0], a, "")

@@ -42,12 +42,14 @@ var (
 	NoMount          []string
 	DMTCPLaunch      string
 	DMTCPRestart     string
+
 	CRIULaunch       string
 	CRIURestart      string
 
-	StartTime        int64
+	StartTime int64
 
-	UseCRIU         bool
+	UseCRIU        bool
+	CRIUPrivileged bool
 
 	IsBoot          bool
 	IsFakeroot      bool
@@ -703,6 +705,16 @@ var actionCRIUFlag = cmdline.Flag{
 	Name:         "criu",
 	Usage:        "checkpoint and restore by CRIU (default with DMTCP)",
 	EnvKeys:      []string{"USE_CRIU"},
+}
+
+// --privileged, run criu with root privileges
+var actionCRIUPrivilegedFlag = cmdline.Flag{
+	ID:           "privilegedFlag",
+	Value:        &CRIUPrivileged,
+	DefaultValue: false,
+	Name:         "privileged",
+	Usage:        "run criu with root privileges",
+	EnvKeys:      []string{"PRIVILEGED"},
 }
 
 func init() {

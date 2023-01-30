@@ -164,8 +164,9 @@ struct starter {
     bool nvCCLICaps;
 
     /* if it is doing cr by criu*/
-    bool needPriv;
+    bool useCRIU;
     bool criuLaunch;
+    bool criuPrivileged;
 
     int64_t startTime;
 };

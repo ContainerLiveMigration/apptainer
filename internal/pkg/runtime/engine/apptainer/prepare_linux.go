@@ -153,11 +153,11 @@ func (e *EngineOperations) PrepareConfig(starterConfig *starter.Config) error {
 	}
 
 	starterConfig.SetStartTime(e.EngineConfig.GetStartTime())
-	sylog.Debugf("set use criu as %v", e.EngineConfig.GetCRIUConfig().NeedPriv)
+	sylog.Debugf("set use criu as %v", e.EngineConfig.GetCRIUConfig().UseCRIU)
 	criuConfig := e.EngineConfig.GetCRIUConfig()
-	starterConfig.SetNeedpriv(criuConfig.NeedPriv)
+	starterConfig.SetUseCRIU(criuConfig.UseCRIU)
 	starterConfig.SetCRIUlaunch(criuConfig.Enabled && !criuConfig.Restart)
-
+	starterConfig.SetCRIUPrivileged(criuConfig.Privileged)
 	starterConfig.SetMasterPropagateMount(true)
 	starterConfig.SetNoNewPrivs(e.EngineConfig.OciConfig.Process.NoNewPrivileges)
 

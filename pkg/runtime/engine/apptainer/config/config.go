@@ -77,7 +77,8 @@ type DMTCPConfig struct {
 type CRIUConfig struct {
 	Enabled    bool     `json:"enabled,omitempty"`
 	Restart    bool     `json:"restart,omitempty"`
-	NeedPriv   bool     `json:"needPriv,omitempty"`
+	UseCRIU	   bool     `json:"useCRIU,omitempty"`
+	Privileged bool     `json:"privileged,omitempty"`
 	Checkpoint string   `json:"checkpoint,omitempty"`
 	Args       []string `json:"args,omitempty"`
 }

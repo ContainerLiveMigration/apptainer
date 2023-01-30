@@ -838,8 +838,9 @@ func runActionScript(engineConfig *apptainerConfig.EngineConfig) ([]string, []st
 			argv = dmtcp.InjectArgs(dmtcpConfig, argv)
 			sylog.Debugf("Injected DMTCP args %+q", argv)
 		}
-		if engineConfig.GetCRIUConfig().Restart {
-			argv = criu.RestoreArgs()
+		criuConfig := engineConfig.GetCRIUConfig()
+		if criuConfig.Restart {
+			argv = criu.RestoreArgs(criuConfig.Privileged)
 		}
 
 		cmd, err := shell.LookPath(ctx, argv[0])

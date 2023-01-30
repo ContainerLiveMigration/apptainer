@@ -185,11 +185,11 @@ func (c *Config) SetHybridWorkflow(hybrid bool) {
 	}
 }
 
-func (c *Config) SetNeedpriv(b bool) {
+func (c *Config) SetUseCRIU(b bool) {
 	if b {
-		c.config.starter.needPriv = C.true
+		c.config.starter.useCRIU = C.true
 	} else {
-		c.config.starter.needPriv = C.false
+		c.config.starter.useCRIU = C.false
 	}
 }
 
@@ -203,6 +203,14 @@ func (c *Config) SetCRIUlaunch(b bool) {
 
 func (c *Config) SetStartTime(time int64) {
 	c.config.starter.startTime = C.long(time)
+}
+
+func (c *Config) SetCRIUPrivileged(privileged bool) {
+	if privileged {
+		c.config.starter.criuPrivileged = C.true
+	} else {
+		c.config.starter.criuPrivileged = C.false
+	}
 }
 
 // SetAllowSetgroups allows use of setgroups syscall from user namespace.

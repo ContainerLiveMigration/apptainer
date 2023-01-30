@@ -66,6 +66,7 @@
 /* current starter configuration */
 struct starterConfig *sconfig;
 
+long long int start_time;
 long long int check_config_time;
 long long int config_time;
 long long int exec_time;
@@ -436,12 +437,12 @@ static void set_criu_privileges(struct privileges* priv) {
 
     // memset(priv, 0, sizeof(struct privileges));
 
-    priv->capabilities.effective |= capflag(CAP_SYS_ADMIN) | capflag(40) | capflag(CAP_NET_ADMIN) | capflag(CAP_SETPCAP);
+    priv->capabilities.effective |= capflag(CAP_SYS_ADMIN) | capflag(CAP_SYS_RESOURCE) | capflag(CAP_NET_ADMIN) | capflag(CAP_SETPCAP);
     // priv->capabilities.effective |=  capflag(40) | capflag(CAP_NET_ADMIN) | capflag(CAP_SETPCAP);
     priv->capabilities.permitted = current->permitted;
     priv->capabilities.bounding = current->permitted;
     priv->capabilities.inheritable = current->permitted;
-    priv->capabilities.ambient = current->ambient | capflag(CAP_SYS_ADMIN) | capflag(40) | capflag(CAP_NET_ADMIN) | capflag(CAP_SETPCAP);
+    priv->capabilities.ambient = current->ambient | capflag(CAP_SYS_ADMIN) | capflag(CAP_SYS_RESOURCE) | capflag(CAP_NET_ADMIN) | capflag(CAP_SETPCAP);
     // priv->capabilities.ambient = current->ambient | capflag(40) | capflag(CAP_NET_ADMIN) | capflag(CAP_SETPCAP);
 
     debugf("Set CRIU privileges\n");
@@ -1163,7 +1164,7 @@ static void wait_child(const char *name, pid_t child_pid, bool noreturn) {
         /* noreturn will exit the current process with corresponding status */
         if ( noreturn || exit_status != 0 ) {
             exec_time = get_unix_nanosecs();
-            infof("TIMESTAMP: exist time %lld, accumulate time %lld, exec_stage_time %lld\n", exec_time, exec_time - sconfig->starter.startTime, exec_time - config_time);
+            infof("TIMESTAMP: exist time %lld, accumulate time %lld\n", exec_time, exec_time - start_time);
             exit(exit_status);
         }
     } else if ( WIFSIGNALED(status) ) {
@@ -1367,6 +1368,9 @@ __attribute__((constructor)) static void init(void) {
     check_config_time = get_unix_nanosecs();
     infof("TIMESTAMP: stage 1 finish: %lld, accumulate time: %lld, check_config_stage_time %lld\n", check_config_time, 
         check_config_time - sconfig->starter.startTime ,check_config_time - sconfig->starter.startTime);
+    
+    start_time = sconfig->starter.startTime;
+    
     /* change current working directory if requested by stage 1 */
     if ( sconfig->starter.workingDirectoryFd >= 0 ) {
         debugf("Applying stage 1 working directory\n");
@@ -1580,7 +1584,7 @@ __attribute__((constructor)) static void init(void) {
         }
 
         if (sconfig->starter.criuLaunch) {
-            verbosef("criu launch write to the ns_last_pid");
+            verbosef("criu launch write to the ns_last_pid\n");
             int fd = open("/proc/sys/kernel/ns_last_pid", O_WRONLY);
             int cnt = write(fd, "50\n", 3);
             close(fd);
@@ -1588,18 +1592,25 @@ __attribute__((constructor)) static void init(void) {
                 fatalf("failed to write to /proc/sys/kernel/ns_last_pid");
             }
         }
-        if (!sconfig->starter.needPriv) {
+        if (sconfig->starter.useCRIU) {
+            if (sconfig->starter.criuPrivileged) {
+                debugf("Change criu user to root\n");
+                if (!sconfig->starter.isSuid) {
+                    fatalf("CRIU privileged mode requires SUID workflow");
+                }
+                if (setuid(0) < 0) {
+                    verbosef("set uid to 0 failed");
+                }
+            } else {
+                debugf("Setup criu priviledges\n");
+                set_criu_privileges(&sconfig->container.privileges);
+            }
+        } else {
             debugf("Set container privileges\n");
             current = get_process_capabilities();
             apply_privileges(&sconfig->container.privileges, current);
             set_parent_death_signal(SIGKILL);
             free(current);
-        } else {
-            // if (setuid(0) < 0) {
-            //     verbosef("set uid to 0 failed");
-            // }
-            debugf("Setup criu priviledges\n");
-            set_criu_privileges(&sconfig->container.privileges);
         }
         config_time = get_unix_nanosecs();
         infof("TIMESTAMP: finish all setup %lld, accumulate time %lld, config_stage_time %lld\n", config_time, config_time - sconfig->starter.startTime,config_time - check_config_time);

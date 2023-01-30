@@ -718,7 +718,6 @@ func execStarter(cobraCmd *cobra.Command, image string, args []string, name stri
 		}
 	}
 
-
 	if engineConfig.GetInstance() {
 		var stderr, stdout *os.File
 		if CRIULaunch != "" {
@@ -1005,13 +1004,15 @@ func injectCRIUConfig(engineConfig *apptainerConfig.EngineConfig) error {
 		config = apptainerConfig.CRIUConfig{
 			Enabled:    true,
 			Restart:    true,
-			NeedPriv:   true,
+			UseCRIU:    true,
+			Privileged: CRIUPrivileged,
 			Checkpoint: CRIURestart,
-			Args:       criu.RestoreArgs(),
+			Args:       criu.RestoreArgs(CRIUPrivileged),
 		}
 	} else if UseCRIU {
 		config = apptainerConfig.CRIUConfig{
-			NeedPriv: true,
+			UseCRIU:    true,
+			Privileged: CRIUPrivileged,
 		}
 		engineConfig.SetCRIUConfig(config)
 		return nil
