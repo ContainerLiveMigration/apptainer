@@ -22,6 +22,7 @@ const (
 	ContainerStatePath = "/.checkpoint"
 	PidFile = "cmd.pid"
 	BackSuffix = ".back"
+	PageServerPort = "10025"
 	// portFile           = "coord.port"
 	// logFile            = "coord.log"
 )

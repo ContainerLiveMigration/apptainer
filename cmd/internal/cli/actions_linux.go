@@ -1001,13 +1001,24 @@ func injectCRIUConfig(engineConfig *apptainerConfig.EngineConfig) error {
 			Checkpoint: CRIULaunch,
 		}
 	} else if CRIURestart != "" {
-		config = apptainerConfig.CRIUConfig{
-			Enabled:    true,
-			Restart:    true,
-			UseCRIU:    true,
-			Privileged: CRIUPrivileged,
-			Checkpoint: CRIURestart,
-			Args:       criu.RestoreArgs(CRIUPrivileged),
+		if CRIUPageServer {
+			config = apptainerConfig.CRIUConfig{
+				Enabled: true,
+				Restart: true,
+				UseCRIU: true,
+				Privileged: CRIUPrivileged,
+				Checkpoint: CRIURestart,
+				Args: 	 criu.PageServerArgs(CRIUPrivileged),
+			}
+		} else {
+			config = apptainerConfig.CRIUConfig{
+				Enabled:    true,
+				Restart:    true,
+				UseCRIU:    true,
+				Privileged: CRIUPrivileged,
+				Checkpoint: CRIURestart,
+				Args:       criu.RestoreArgs(CRIUPrivileged),
+			}
 		}
 	} else if UseCRIU {
 		config = apptainerConfig.CRIUConfig{
@@ -1024,7 +1035,7 @@ func injectCRIUConfig(engineConfig *apptainerConfig.EngineConfig) error {
 		return err
 	}
 
-	sylog.Debugf("Injecting checkpoint state bind: %q", config.Checkpoint)
+	sylog.Debugf("Injecting checkpoint state bind: %q, args is %v", config.Checkpoint, config.Args)
 	engineConfig.SetBindPath(append(engineConfig.GetBindPath(), e.BindPath()))
 	engineConfig.AppendFilesPath(bins...)
 	engineConfig.AppendLibrariesPath(libs...)

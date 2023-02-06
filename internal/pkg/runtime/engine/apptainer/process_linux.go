@@ -191,7 +191,8 @@ func (e *EngineOperations) StartProcess(masterConnFd int) error {
 			}
 		}
 		sylog.Debugf("current environment is %v", os.Environ())
-		sylog.Debugf("args is %v, env is %v", args, env)
+		sylog.Debugf("args is %v", args)
+		sylog.Debugf("envs is %v", env)
 		now := time.Now().UnixNano()
 		sylog.Infof("TIMESTAMP: exec container process: %d, accumulate time %d\n", now, now - e.EngineConfig.GetStartTime())
 		return e.execProcess(args, env)
@@ -216,6 +217,7 @@ func (e *EngineOperations) StartProcess(masterConnFd int) error {
 			Setpgid: isInstance,
 		}
 		now := time.Now().UnixNano()
+		sylog.Debugf("args is %v", args)
 		sylog.Infof("TIMESTAMP: start container process: %d, accumulate time: %d\n", now, now - e.EngineConfig.GetStartTime())
 		if err := cmd.Start(); err != nil {
 			if e, ok := err.(*os.PathError); ok {
@@ -840,7 +842,7 @@ func runActionScript(engineConfig *apptainerConfig.EngineConfig) ([]string, []st
 		}
 		criuConfig := engineConfig.GetCRIUConfig()
 		if criuConfig.Restart {
-			argv = criu.RestoreArgs(criuConfig.Privileged)
+			argv = criuConfig.Args
 		}
 
 		cmd, err := shell.LookPath(ctx, argv[0])

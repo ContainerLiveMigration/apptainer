@@ -50,6 +50,9 @@ var (
 
 	UseCRIU        bool
 	CRIUPrivileged bool
+	CRIUPageServer bool
+	CRIUPageServerAddress string
+	CRIURestore   bool
 
 	IsBoot          bool
 	IsFakeroot      bool
@@ -695,6 +698,36 @@ var actionCRIURestartFlag = cmdline.Flag{
 	Name:         "criu-restart",
 	Usage:        "checkpoint for criu to use to restart container process (experimental)",
 	EnvKeys:      []string{"CRIU_RESTART"},
+}
+
+// --restore
+var actionCRIURestoreFlag = cmdline.Flag{
+	ID:           "actionCRIURestoreFlag",
+	Value:        &CRIURestore,
+	DefaultValue: false,
+	Name:         "restore",
+	Usage:        "restore process in a container from a checkpoint",
+	EnvKeys:      []string{"CRIU_RESTORE"},
+}
+
+// --page-server
+var actionPageServerFlag = cmdline.Flag{
+	ID:           "actionPageServerFlag",
+	Value:        &CRIUPageServer,
+	DefaultValue: false,
+	Name:         "page-server",
+	Usage:        "run criu as page server mode",
+	EnvKeys:      []string{"CRIU_PAGE_SERVER"},
+}
+
+// --address
+var actionPageServerAddressFlag = cmdline.Flag{
+	ID:           "actionPageServerAddressFlag",
+	Value:        &CRIUPageServerAddress,
+	DefaultValue: "",
+	Name:		 "address",
+	Usage:        "address of the CRIU page server",
+	EnvKeys:      []string{"CRIU_PAGE_SERVER_ADDRESS"},
 }
 
 // --criu

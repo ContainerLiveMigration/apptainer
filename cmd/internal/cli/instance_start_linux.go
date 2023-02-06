@@ -28,6 +28,7 @@ func init() {
 		cmdManager.RegisterFlagForCmd(&actionDMTCPRestartFlag, instanceStartCmd)
 		cmdManager.RegisterFlagForCmd(&actionCRIULaunchFlag, instanceStartCmd)
 		cmdManager.RegisterFlagForCmd(&actionCRIURestartFlag, instanceStartCmd)
+		cmdManager.RegisterFlagForCmd(&actionPageServerFlag, instanceStartCmd)
 		cmdManager.RegisterFlagForCmd(&actionCRIUPrivilegedFlag, instanceStartCmd)
 	})
 }

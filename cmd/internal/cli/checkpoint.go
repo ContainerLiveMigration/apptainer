@@ -10,6 +10,7 @@ package cli
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"text/tabwriter"
@@ -38,6 +39,9 @@ func init() {
 		cmdManager.RegisterFlagForCmd(&actionHomeFlag, CheckpointInstanceCmd)
 		cmdManager.RegisterFlagForCmd(&actionCRIUFlag, CheckpointInstanceCmd)
 		cmdManager.RegisterFlagForCmd(&actionCRIUPrivilegedFlag, CheckpointInstanceCmd)
+		cmdManager.RegisterFlagForCmd(&actionPageServerFlag, CheckpointInstanceCmd)
+		cmdManager.RegisterFlagForCmd(&actionPageServerAddressFlag, CheckpointInstanceCmd)
+		cmdManager.RegisterFlagForCmd(&actionCRIURestoreFlag, CheckpointInstanceCmd)
 	})
 }
 
@@ -181,30 +185,42 @@ var CheckpointInstanceCmd = &cobra.Command{
 			sylog.Fatalf("This instance was not started with checkpointing.")
 		}
 		if UseCRIU {
-			m := criu.NewManager()
-			e, err := m.Get(file.Checkpoint)
-			if err != nil {
-				sylog.Fatalf("Failed to get checkpoint entry: %v", err)
-			}
+			if CRIURestore {
+				a := append([]string{"/.singularity.d/actions/exec"}, criu.RestoreArgs(CRIUPrivileged)...)
+				execStarter(cmd, "instance://"+args[0], a, "")
+			} else {
+				m := criu.NewManager()
+				e, err := m.Get(file.Checkpoint)
+				if err != nil {
+					sylog.Fatalf("Failed to get checkpoint entry: %v", err)
+				}
 
-			sylog.Infof("Using checkpoint %q", e.Name())
-			pid, err := e.GetPid()
-			if err != nil {
-				sylog.Fatalf("Fail to parse pid of dump process %e", err)
-			}
-			// // backup the err file, because when call to the criu restore, it will check the size of open files
-			// err = copy.CopyFileContents(file.LogErrPath + criu.BackSuffix, file.LogErrPath)
-			// if err != nil {
-			// 	sylog.Fatalf("copy file, failed %e", err)
-			// }
+				sylog.Infof("Using checkpoint %q", e.Name())
+				pid, err := e.GetPid()
+				if err != nil {
+					sylog.Fatalf("Fail to parse pid of dump process %e", err)
+				}
+				// // backup the err file, because when call to the criu restore, it will check the size of open files
+				// err = copy.CopyFileContents(file.LogErrPath + criu.BackSuffix, file.LogErrPath)
+				// if err != nil {
+				// 	sylog.Fatalf("copy file, failed %e", err)
+				// }
 
-			// err = copy.CopyFileContents(file.LogOutPath + criu.BackSuffix, file.LogOutPath)
-			// if err != nil {
-			// 	sylog.Fatalf("copy file, failed %e", err)
-			// }
-			a := append([]string{"/.singularity.d/actions/exec"}, criu.CheckpointArgs(pid, CRIUPrivileged)...)
-			// a = append([]string{"/.singularity.d/actions/exec"}, []string{"sh"}...)
-			execStarter(cmd, "instance://"+args[0], a, "")
+				// err = copy.CopyFileContents(file.LogOutPath + criu.BackSuffix, file.LogOutPath)
+				// if err != nil {
+				// 	sylog.Fatalf("copy file, failed %e", err)
+				// }
+				var a []string
+				if CRIUPageServer {
+					if net.ParseIP(CRIUPageServerAddress) == nil {
+						sylog.Fatalf("Invalid IP address for page server: %s", CRIUPageServerAddress)
+					}
+					a = append([]string{"/.singularity.d/actions/exec"}, criu.CheckpointWithPageServerArgs(pid, CRIUPrivileged, CRIUPageServerAddress)...)
+				} else {
+					a = append([]string{"/.singularity.d/actions/exec"}, criu.CheckpointArgs(pid, CRIUPrivileged)...)
+				}
+				execStarter(cmd, "instance://"+args[0], a, "")
+			}
 		} else {
 			m := dmtcp.NewManager()
 			e, err := m.Get(file.Checkpoint)

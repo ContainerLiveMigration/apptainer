@@ -65,3 +65,80 @@ func RestoreArgs(privileged bool) []string {
 		}
 	}
 }
+
+func PageServerArgs(privileged bool) []string {
+	if !privileged {
+		return []string{
+			"criu",
+			"page-server",
+			"--unprivileged",
+			"-v4",
+			"--port",
+			PageServerPort,
+			"--images-dir",
+			ContainerStatePath,
+			"--work-dir",
+			ContainerStatePath,
+			"--log-file",
+			"page-server.log",
+		}
+	} else {
+		return []string{
+			"criu",
+			"page-server",
+			"-v4",
+			"--port",
+			PageServerPort,
+			"--images-dir",
+			ContainerStatePath,
+			"--work-dir",
+			ContainerStatePath,
+			"--log-file",
+			"page-server.log",
+		}
+	}
+}
+
+func CheckpointWithPageServerArgs(pid string, privileged bool, address string) []string {
+	if !privileged {
+		return []string{
+			"criu",
+			"dump",
+			"--unprivileged",
+			"--tree",
+			pid,
+			"--images-dir",
+			ContainerStatePath,
+			"--work-dir",
+			ContainerStatePath,
+			"--shell-job",
+			"-v4",
+			"--log-file",
+			"page-server.log",
+			"--page-server",
+			"--address",
+			address,
+			"--port",
+			PageServerPort,
+		}
+	} else {
+		return []string{
+			"criu",
+			"dump",
+			"--tree",
+			pid,
+			"--images-dir",
+			ContainerStatePath,
+			"--work-dir",
+			ContainerStatePath,
+			"--shell-job",
+			"-v4",
+			"--log-file",
+			"page-server.log",
+			"--page-server",
+			"--address",
+			address,
+			"--port",
+		}
+	}
+}
