@@ -20,6 +20,7 @@ type Config struct {
 
 const (
 	ContainerStatePath = "/.checkpoint"
+	CheckpointImagePath = "/.checkpoint/img"
 	PidFile = "cmd.pid"
 	BackSuffix = ".back"
 	PageServerPort = "10025"

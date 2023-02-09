@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"syscall"
 	"text/tabwriter"
 
 	"github.com/apptainer/apptainer/docs"
@@ -189,8 +190,12 @@ var CheckpointInstanceCmd = &cobra.Command{
 		}
 		if UseCRIU {
 			if CRIURestore {
-				a := append([]string{"/.singularity.d/actions/exec"}, criu.RestoreArgs(CRIUPrivileged)...)
-				execStarter(cmd, "instance://"+args[0], a, "")
+				// detach from current shell
+				id, _, _ := syscall.Syscall(syscall.SYS_FORK, 0, 0, 0)
+				if id == 0 {
+					a := append([]string{"/.singularity.d/actions/exec"}, criu.RestoreArgs(CRIUPrivileged)...)
+					execStarter(cmd, "instance://"+args[0], a, "")
+				}
 			} else {
 				m := criu.NewManager()
 				e, err := m.Get(file.Checkpoint)

@@ -225,7 +225,7 @@ func NewManager() Manager {
 }
 
 func (checkpointManager) Create(name string) (*Entry, error) {
-	err := os.MkdirAll(filepath.Join(criuDir(), name), 0o700)
+	err := os.MkdirAll(filepath.Join(criuDir(), name, "img"), 0o700)
 	if err != nil {
 		return nil, err
 	}
