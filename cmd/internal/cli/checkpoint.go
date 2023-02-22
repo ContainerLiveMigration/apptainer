@@ -164,12 +164,7 @@ var CheckpointConfigCmd = &cobra.Command{
 
 		m := criu.NewManager()
 
-		_, err := m.Get(name)
-		if err != nil {
-			sylog.Fatalf("Checkpoint %q doesn't exist.", name)
-		}
-
-		err = m.Config(name, dirType)
+		err := m.Config(name, dirType)
 		if err != nil {
 			sylog.Fatalf("Failed to config checkpoint: %s", err)
 		}

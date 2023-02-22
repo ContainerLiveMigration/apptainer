@@ -1003,12 +1003,12 @@ func injectCRIUConfig(engineConfig *apptainerConfig.EngineConfig) error {
 	} else if CRIURestart != "" {
 		if CRIUPageServer {
 			config = apptainerConfig.CRIUConfig{
-				Enabled: true,
-				Restart: true,
-				UseCRIU: true,
+				Enabled:    true,
+				Restart:    true,
+				UseCRIU:    true,
 				Privileged: CRIUPrivileged,
 				Checkpoint: CRIURestart,
-				Args: 	 criu.PageServerArgs(CRIUPrivileged),
+				Args:       criu.PageServerArgs(CRIUPrivileged),
 			}
 		} else {
 			config = apptainerConfig.CRIUConfig{
@@ -1034,6 +1034,8 @@ func injectCRIUConfig(engineConfig *apptainerConfig.EngineConfig) error {
 	if err != nil {
 		return err
 	}
+
+	e.Sync()
 
 	sylog.Debugf("Injecting checkpoint state bind: %q, args is %v", config.Checkpoint, config.Args)
 	engineConfig.SetBindPath(append(engineConfig.GetBindPath(), e.BindPath()...))

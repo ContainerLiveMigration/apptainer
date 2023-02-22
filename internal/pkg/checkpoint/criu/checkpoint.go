@@ -203,16 +203,14 @@ func (e *Entry) GetRestoreLogFile(name string) (*os.File, *os.File, error) {
 }
 
 func (e *Entry) BindPath() []apptainerConfig.BindPath {
-	ret := [] apptainerConfig.BindPath {
+	ret := []apptainerConfig.BindPath{
 		{
 			Source:      e.path,
 			Destination: ContainerStatePath,
 			Options: map[string]*apptainerConfig.BindOption{
 				"rw": {},
 			},
-			
 		},
-		
 	}
 	if e.dirType == MemType {
 		p, err := e.GetImgRealPath()
@@ -220,7 +218,7 @@ func (e *Entry) BindPath() []apptainerConfig.BindPath {
 			sylog.Fatalf("get image real path failed, %e", err)
 		}
 		ret = append(ret, apptainerConfig.BindPath{
-			Source: p,
+			Source:      p,
 			Destination: CheckpointImagePath,
 			Options: map[string]*apptainerConfig.BindOption{
 				"rw": {},
@@ -249,6 +247,23 @@ func (e *Entry) Type() string {
 	}
 }
 
+func (e *Entry) Sync() error {
+	if e.dirType != MemType {
+		return nil
+	}
+	p, err := e.GetImgRealPath()
+	if err != nil {
+		return err
+	}
+	// if p doesn't exist, create it
+	if _, err := os.Stat(p); os.IsNotExist(err) {
+		if err := os.MkdirAll(p, 0o700); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type ImgDirType int
 
 const (
@@ -259,7 +274,7 @@ const (
 type Manager interface {
 	Create(string, ImgDirType) (*Entry, error) // create checkpoint directory for criu state
 	Get(string) (*Entry, error)                // ensure directory with criu state exists
-	Config(string, ImgDirType) error                   // configure checkpoint directory type for criu state
+	Config(string, ImgDirType) error           // configure checkpoint directory type for criu state
 	List() ([]*Entry, error)                   // list checkpoint directories for criu state
 	Delete(string) error                       // delete checkpoint directory for criu state
 }
@@ -304,9 +319,11 @@ func (checkpointManager) Get(name string) (*Entry, error) {
 func (c checkpointManager) Config(name string, t ImgDirType) error {
 	entry, err := c.Get(name)
 	if err != nil {
-		return fmt.Errorf("failed to get checkpoint directory: %s", err)
+		return fmt.Errorf("failed to get checkpoint directory %s: %s", name, err)
 	}
+
 	if entry.dirType == t {
+		entry.Sync()
 		return nil
 	}
 	checkpointDir := entry.path
