@@ -22,7 +22,8 @@ import (
 )
 
 type Entry struct {
-	path string
+	path    string
+	dirType ImgDirType
 }
 
 func (e *Entry) GetPid() (string, error) {
@@ -40,6 +41,14 @@ func (e *Entry) GetPid() (string, error) {
 	}
 
 	return s.Text(), nil
+}
+
+func (e *Entry) GetImgRealPath() (string, error) {
+	if e.dirType == DiskType {
+		return "", fmt.Errorf("cannot get image path for disk checkpoint")
+	}
+	imgDir := filepath.Join(e.path, "img")
+	return readRealPath(imgDir)
 }
 
 func (e *Entry) getLogDir() string {
@@ -140,7 +149,7 @@ func (e *Entry) RollBackLogFile(name string) error {
 // GetLogFilePaths returns the paths of log files containing
 // .err, .out streams, respectively
 func (e *Entry) GetLogFilePaths(name string) (string, string, error) {
-	path  := e.getLogDir()
+	path := e.getLogDir()
 	logErrPath := filepath.Join(path, name+".err")
 	logOutPath := filepath.Join(path, name+".out")
 
@@ -150,7 +159,7 @@ func (e *Entry) GetLogFilePaths(name string) (string, string, error) {
 // GetLogFilePaths returns the paths of log files containing
 // .err, .out streams, respectively
 func (e *Entry) GetRestoreLogFilePaths(name string) (string, string, error) {
-	path  := e.getLogDir()
+	path := e.getLogDir()
 	logErrPath := filepath.Join(path, name+".restore.err")
 	logOutPath := filepath.Join(path, name+".restore.out")
 
@@ -193,14 +202,32 @@ func (e *Entry) GetRestoreLogFile(name string) (*os.File, *os.File, error) {
 	return logOut, logErr, nil
 }
 
-func (e *Entry) BindPath() apptainerConfig.BindPath {
-	return apptainerConfig.BindPath{
-		Source:      e.path,
-		Destination: ContainerStatePath,
-		Options: map[string]*apptainerConfig.BindOption{
-			"rw": {},
+func (e *Entry) BindPath() []apptainerConfig.BindPath {
+	ret := [] apptainerConfig.BindPath {
+		{
+			Source:      e.path,
+			Destination: ContainerStatePath,
+			Options: map[string]*apptainerConfig.BindOption{
+				"rw": {},
+			},
+			
 		},
+		
 	}
+	if e.dirType == MemType {
+		p, err := e.GetImgRealPath()
+		if err != nil {
+			sylog.Fatalf("get image real path failed, %e", err)
+		}
+		ret = append(ret, apptainerConfig.BindPath{
+			Source: p,
+			Destination: CheckpointImagePath,
+			Options: map[string]*apptainerConfig.BindOption{
+				"rw": {},
+			},
+		})
+	}
+	return ret
 }
 
 func (e *Entry) Path() string {
@@ -211,11 +238,30 @@ func (e *Entry) Name() string {
 	return filepath.Base(e.path)
 }
 
+func (e *Entry) Type() string {
+	switch e.dirType {
+	case DiskType:
+		return "disk"
+	case MemType:
+		return "memory"
+	default:
+		return "unknown"
+	}
+}
+
+type ImgDirType int
+
+const (
+	DiskType ImgDirType = iota
+	MemType
+)
+
 type Manager interface {
-	Create(string) (*Entry, error) // create checkpoint directory for criu state
-	Get(string) (*Entry, error)    // ensure directory with criu state exists
-	List() ([]*Entry, error)       // list checkpoint directories for criu state
-	Delete(string) error           // delete checkpoint directory for criu state
+	Create(string, ImgDirType) (*Entry, error) // create checkpoint directory for criu state
+	Get(string) (*Entry, error)                // ensure directory with criu state exists
+	Config(string, ImgDirType) error                   // configure checkpoint directory type for criu state
+	List() ([]*Entry, error)                   // list checkpoint directories for criu state
+	Delete(string) error                       // delete checkpoint directory for criu state
 }
 
 type checkpointManager struct{}
@@ -224,13 +270,17 @@ func NewManager() Manager {
 	return &checkpointManager{}
 }
 
-func (checkpointManager) Create(name string) (*Entry, error) {
-	err := os.MkdirAll(filepath.Join(criuDir(), name, "img"), 0o700)
+func (checkpointManager) Create(name string, t ImgDirType) (*Entry, error) {
+	checkpointDir := filepath.Join(criuDir(), name)
+	err := os.MkdirAll(checkpointDir, 0o700)
 	if err != nil {
 		return nil, err
 	}
-
-	return &Entry{filepath.Join(criuDir(), name)}, nil
+	err = createImgDir(checkpointDir, t)
+	if err != nil {
+		return nil, err
+	}
+	return &Entry{checkpointDir, t}, nil
 }
 
 func (checkpointManager) Get(name string) (*Entry, error) {
@@ -238,12 +288,37 @@ func (checkpointManager) Get(name string) (*Entry, error) {
 		return nil, fmt.Errorf("checkpoint name must not be empty")
 	}
 
-	_, err := os.Stat(filepath.Join(criuDir(), name))
+	checkpointDir := filepath.Join(criuDir(), name)
+	imgDir := filepath.Join(checkpointDir, "img")
+	_, err := os.Stat(checkpointDir)
 	if err != nil {
 		return nil, err
 	}
+	dirType, err := checkDirType(imgDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check checkpoint directory type: %s", err)
+	}
+	return &Entry{checkpointDir, dirType}, nil
+}
 
-	return &Entry{filepath.Join(criuDir(), name)}, nil
+func (c checkpointManager) Config(name string, t ImgDirType) error {
+	entry, err := c.Get(name)
+	if err != nil {
+		return fmt.Errorf("failed to get checkpoint directory: %s", err)
+	}
+	if entry.dirType == t {
+		return nil
+	}
+	checkpointDir := entry.path
+	imgDir := filepath.Join(checkpointDir, "img")
+	if entry.dirType == MemType {
+		deleteRealImgDir(imgDir)
+	}
+	err = os.RemoveAll(imgDir)
+	if err != nil {
+		return fmt.Errorf("failed to remove checkpoint image directory %s: %s", imgDir, err)
+	}
+	return createImgDir(checkpointDir, t)
 }
 
 func (checkpointManager) List() ([]*Entry, error) {
@@ -257,20 +332,86 @@ func (checkpointManager) List() ([]*Entry, error) {
 		if !fi.IsDir() {
 			continue
 		}
-
-		entries = append(entries, &Entry{filepath.Join(criuDir(), fi.Name())})
+		checkpointDir := filepath.Join(criuDir(), fi.Name())
+		imgDir := filepath.Join(checkpointDir, "img")
+		dirType, err := checkDirType(imgDir)
+		if err != nil {
+			continue
+		}
+		sylog.Debugf("checkpoint dir %s, type %v", checkpointDir, dirType)
+		entries = append(entries, &Entry{checkpointDir, dirType})
 	}
 
 	return entries, nil
 }
 
 func (checkpointManager) Delete(name string) error {
-	_, err := os.Stat(filepath.Join(criuDir(), name))
+	checkpointDir := filepath.Join(criuDir(), name)
+	imgDir := filepath.Join(checkpointDir, "img")
+	_, err := os.Stat(checkpointDir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return fmt.Errorf("checkpoint %q not found", name)
 		}
 	}
+	deleteRealImgDir(imgDir)
+	return os.RemoveAll(checkpointDir)
+}
 
-	return os.RemoveAll(filepath.Join(criuDir(), name))
+func checkDirType(path string) (ImgDirType, error) {
+	realPath := filepath.Join(path, RealPath)
+	// check whether realPath exits
+	f, err := os.Stat(realPath)
+	if err != nil || f.Size() == 0 {
+		return DiskType, nil
+	}
+	return MemType, nil
+}
+
+func createImgDir(checkpointDir string, dirType ImgDirType) error {
+	imgDir := filepath.Join(checkpointDir, "img")
+	err := os.Mkdir(imgDir, 0o700)
+	if err != nil {
+		return fmt.Errorf("failed to create checkpoint image directory %s: %s", imgDir, err)
+	}
+	if dirType == DiskType {
+		return nil
+	}
+	f, err := os.Create(filepath.Join(imgDir, RealPath))
+	if err != nil {
+		return fmt.Errorf("failed to create real_path file: %s", err)
+	}
+	defer f.Close()
+	src := filepath.Join(TmpfsPath, checkpointDir)
+	_, err = f.WriteString(src)
+	if err != nil {
+		return fmt.Errorf("failed to write real_path file: %s", err)
+	}
+	err = os.MkdirAll(src, 0o700)
+	if err != nil {
+		return fmt.Errorf("failed to create tmpfs directory %s: %s", src, err)
+	}
+	return nil
+}
+
+func readRealPath(imgDir string) (string, error) {
+	p := filepath.Join(imgDir, RealPath)
+	f, err := os.Open(p)
+	if err != nil {
+		return "", fmt.Errorf("failed to open real_path file: %s", err)
+	}
+	defer f.Close()
+	b, err := ioutil.ReadAll(f)
+	if err != nil {
+		return "", fmt.Errorf("failed to read real_path file %s: %s", p, err)
+	}
+	return string(b), nil
+}
+
+func deleteRealImgDir(imgDir string) error {
+	realPath, err := readRealPath(imgDir)
+	if err != nil {
+		return err
+	}
+	return os.RemoveAll(realPath)
 }

@@ -48,6 +48,8 @@ var (
 
 	StartTime int64
 
+	MemDir bool
+
 	UseCRIU        bool
 	CRIUPrivileged bool
 	CRIUPageServer bool
@@ -680,6 +682,15 @@ var actionDMTCPRestartFlag = cmdline.Flag{
 	EnvKeys:      []string{"DMTCP_RESTART"},
 }
 
+// --mem-dir
+var actionMemDirFlag = cmdline.Flag{
+	ID:           "actionMemDirFlag",
+	Value:        &MemDir,
+	DefaultValue: false,
+	Name:         "mem-dir",
+	Usage:        "criu store checkpoint at memory directory (experimental)",
+	EnvKeys:      []string{"MEM_DIR"},
+}
 // --criu-launch
 var actionCRIULaunchFlag = cmdline.Flag{
 	ID:           "actionCRIULaunchFlag",

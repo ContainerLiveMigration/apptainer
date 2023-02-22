@@ -1084,7 +1084,15 @@ Enterprise Performance Computing (EPC)`
   To list checkpoints:
   $ apptainer checkpoint list`
 
-	CheckpointCreateUse   string = `create <name>`
+	CheckpointConfigUse   string = `config <name> <dirType>`
+	CheckpointConfigShort string = `config checkpoint image directory type (experimental)`
+	CheckpointConfigLong  string = `
+  The checkpoint config command will change directory type checkpoint image data stored`
+	CheckpointConfigExample string = `
+  To config an empty existed checkpoint:
+  $ apptainer checkpoint config example-checkpoint memory`
+
+  CheckpointCreateUse   string = `create <name>`
 	CheckpointCreateShort string = `Create empty checkpoint storage (experimental)`
 	CheckpointCreateLong  string = `
   The checkpoint create command will initialize a location to store checkpoint data once used

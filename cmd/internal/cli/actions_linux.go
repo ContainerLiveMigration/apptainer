@@ -1036,7 +1036,7 @@ func injectCRIUConfig(engineConfig *apptainerConfig.EngineConfig) error {
 	}
 
 	sylog.Debugf("Injecting checkpoint state bind: %q, args is %v", config.Checkpoint, config.Args)
-	engineConfig.SetBindPath(append(engineConfig.GetBindPath(), e.BindPath()))
+	engineConfig.SetBindPath(append(engineConfig.GetBindPath(), e.BindPath()...))
 	engineConfig.AppendFilesPath(bins...)
 	engineConfig.AppendLibrariesPath(libs...)
 	engineConfig.SetCRIUConfig(config)

@@ -24,6 +24,8 @@ const (
 	PidFile = "cmd.pid"
 	BackSuffix = ".back"
 	PageServerPort = "10025"
+	TmpfsPath = "/dev/shm"
+	RealPath = ".real_path"
 	// portFile           = "coord.port"
 	// logFile            = "coord.log"
 )

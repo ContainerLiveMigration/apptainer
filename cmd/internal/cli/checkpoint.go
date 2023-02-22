@@ -27,7 +27,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const listLine = "%s\n"
+const listLine = "%s\t%s\n"
 
 func init() {
 	addCmdInit(func(cmdManager *cmdline.CommandManager) {
@@ -36,7 +36,9 @@ func init() {
 		cmdManager.RegisterSubCmd(CheckpointCmd, CheckpointInstanceCmd)
 		cmdManager.RegisterSubCmd(CheckpointCmd, CheckpointCreateCmd)
 		cmdManager.RegisterSubCmd(CheckpointCmd, CheckpointDeleteCmd)
+		cmdManager.RegisterSubCmd(CheckpointCmd, CheckpointConfigCmd)
 
+		cmdManager.RegisterFlagForCmd(&actionMemDirFlag, CheckpointCreateCmd)
 		cmdManager.RegisterFlagForCmd(&actionHomeFlag, CheckpointInstanceCmd)
 		cmdManager.RegisterFlagForCmd(&actionCRIUFlag, CheckpointInstanceCmd)
 		cmdManager.RegisterFlagForCmd(&actionCRIUPrivilegedFlag, CheckpointInstanceCmd)
@@ -67,10 +69,10 @@ var CheckpointCmd = &cobra.Command{
 
 // CheckpointListCmd apptainer checkpoint list
 var CheckpointListCmd = &cobra.Command{
-	Args:   cobra.ExactArgs(0),
+	Args: cobra.ExactArgs(0),
 	// PreRun: checkpointPreRun,
 	Run: func(cmd *cobra.Command, args []string) {
-		m := dmtcp.NewManager()
+		m := criu.NewManager()
 
 		entries, err := m.List()
 		if err != nil {
@@ -80,10 +82,10 @@ var CheckpointListCmd = &cobra.Command{
 		}
 
 		tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		fmt.Fprintf(tw, listLine, "NAME")
+		fmt.Fprintf(tw, listLine, "NAME", "TYPE")
 
 		for _, e := range entries {
-			fmt.Fprintf(tw, listLine, filepath.Base(e.Path()))
+			fmt.Fprintf(tw, listLine, filepath.Base(e.Path()), e.Type())
 		}
 
 		tw.Flush()
@@ -99,7 +101,7 @@ var CheckpointListCmd = &cobra.Command{
 
 // CheckpointCreateCmd apptainer checkpoint create
 var CheckpointCreateCmd = &cobra.Command{
-	Args:   cobra.ExactArgs(1),
+	Args: cobra.ExactArgs(1),
 	// PreRun: checkpointPreRun,
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
@@ -125,7 +127,11 @@ var CheckpointCreateCmd = &cobra.Command{
 			sylog.Fatalf("Checkpoint %q already exists.", name)
 		}
 
-		_, err = m2.Create(name)
+		t := criu.DiskType
+		if MemDir {
+			t = criu.MemType
+		}
+		_, err = m2.Create(name, t)
 		if err != nil {
 			sylog.Fatalf("Failed to create checkpoint: %s", err)
 		}
@@ -137,13 +143,51 @@ var CheckpointCreateCmd = &cobra.Command{
 	Short:   docs.CheckpointCreateShort,
 	Long:    docs.CheckpointCreateLong,
 	Example: docs.CheckpointCreateExample,
+}
+
+// CheckpointConfigCmd apptainer checkpoint create
+var CheckpointConfigCmd = &cobra.Command{
+	Args: cobra.ExactArgs(2),
+	// PreRun: checkpointPreRun,
+	Run: func(cmd *cobra.Command, args []string) {
+		name := args[0]
+		t := args[1]
+		var dirType criu.ImgDirType
+		switch t {
+		case "disk":
+			dirType = criu.DiskType
+		case "mem", "memory":
+			dirType = criu.MemType
+		default:
+			sylog.Fatalf("Invalid checkpoint type: %s", t)
+		}
+
+		m := criu.NewManager()
+
+		_, err := m.Get(name)
+		if err != nil {
+			sylog.Fatalf("Checkpoint %q doesn't exist.", name)
+		}
+
+		err = m.Config(name, dirType)
+		if err != nil {
+			sylog.Fatalf("Failed to config checkpoint: %s", err)
+		}
+
+		sylog.Infof("Checkpoint %q config as %q.", name, t)
+	},
+
+	Use:     docs.CheckpointConfigUse,
+	Short:   docs.CheckpointConfigShort,
+	Long:    docs.CheckpointConfigLong,
+	Example: docs.CheckpointConfigExample,
 
 	DisableFlagsInUseLine: true,
 }
 
 // CheckpointDeleteCmd apptainer checkpoint delete
 var CheckpointDeleteCmd = &cobra.Command{
-	Args:   cobra.ExactArgs(1),
+	Args: cobra.ExactArgs(1),
 	// PreRun: checkpointPreRun,
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
