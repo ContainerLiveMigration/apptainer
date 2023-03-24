@@ -236,6 +236,10 @@ func (e *Entry) Name() string {
 	return filepath.Base(e.path)
 }
 
+func (e *Entry) GetConfigPath() string {
+	return filepath.Join(e.path, "config.json")
+}
+
 func (e *Entry) Type() string {
 	switch e.dirType {
 	case DiskType:

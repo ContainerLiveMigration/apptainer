@@ -376,6 +376,7 @@ func execStarter(cobraCmd *cobra.Command, image string, args []string, name stri
 			sylog.Fatalf("while setting fuse mount: %s", err)
 		}
 	}
+	engineConfig.SetMacvlan(Macvlan)
 	engineConfig.SetNetwork(Network)
 	engineConfig.SetDNS(DNS)
 	engineConfig.SetNetworkArgs(NetworkArgs)

@@ -75,9 +75,9 @@ type DMTCPConfig struct {
 // CRIUConfig stores the CRIU-related information required for
 // container process checkpoint/restart behvaior.
 type CRIUConfig struct {
-	Enabled    bool     `json:"enabled,omitempty"`
-	Restart    bool     `json:"restart,omitempty"`
-	UseCRIU	   bool     `json:"useCRIU,omitempty"`
+	Enabled    bool     `json:"enabled,omitempty"`   // start a container
+	Restart    bool     `json:"restart,omitempty"`   // start a contaienr, but it's in a restart routine
+	UseCRIU	   bool     `json:"useCRIU,omitempty"`   // it will exec the criu
 	Privileged bool     `json:"privileged,omitempty"`
 	Checkpoint string   `json:"checkpoint,omitempty"`
 	Args       []string `json:"args,omitempty"`
@@ -149,6 +149,7 @@ type JSONConfig struct {
 	DMTCPConfig       DMTCPConfig       `json:"dmtcpConfig,omitempty"`
 	CRIUConfig        CRIUConfig        `json:"criuConfig,omitempty"`
 	StartTime         int64             `json:"startTime,omitempty"`
+	Macvlan           bool              `json:"macvlan,omitempty"`
 }
 
 // SetImage sets the container image path to be used by EngineConfig.JSON.
@@ -849,4 +850,14 @@ func (e *EngineConfig) SetStartTime(start int64) {
 // getStartTime returns the start time
 func (e *EngineConfig) GetStartTime() int64 {
 	return e.JSON.StartTime
+}
+
+// SetMacvlan sets the macvlan flag
+func (e *EngineConfig) SetMacvlan(macvlan bool) {
+	e.JSON.Macvlan = true
+}
+
+// GetMacvlan returns the macvlan flag
+func (e *EngineConfig) GetMacvlan() bool {
+	return e.JSON.Macvlan
 }

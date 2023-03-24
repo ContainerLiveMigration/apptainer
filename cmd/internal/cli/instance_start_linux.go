@@ -15,6 +15,7 @@ import (
 
 	"github.com/apptainer/apptainer/docs"
 	"github.com/apptainer/apptainer/internal/app/apptainer"
+	"github.com/apptainer/apptainer/internal/pkg/checkpoint/criu"
 	"github.com/apptainer/apptainer/pkg/cmdline"
 	"github.com/apptainer/apptainer/pkg/sylog"
 	"github.com/prometheus/procfs"
@@ -30,6 +31,7 @@ func init() {
 		cmdManager.RegisterFlagForCmd(&actionCRIURestartFlag, instanceStartCmd)
 		cmdManager.RegisterFlagForCmd(&actionPageServerFlag, instanceStartCmd)
 		cmdManager.RegisterFlagForCmd(&actionCRIUPrivilegedFlag, instanceStartCmd)
+		cmdManager.RegisterFlagForCmd(&actionMacvlanFlag, instanceStartCmd)
 	})
 }
 
@@ -63,6 +65,11 @@ var instanceStartCmd = &cobra.Command{
 		
 		// close some open fds to avoid criu dump error
 		if (CRIULaunch != "") {
+			// set net and network
+			if Macvlan {
+				NetNamespace = true
+				Network = "macvlan"
+			}
 			procSelf, err := procfs.Self()
 			if err != nil {
 				sylog.Fatalf("can't open procfs, %e", err)
@@ -85,6 +92,27 @@ var instanceStartCmd = &cobra.Command{
 						sylog.Warningf("close fd %v %v failed, %e", fd, targets[i], err)
 					}
 				}
+			}
+
+			// export global options
+			m := criu.NewManager()
+			e, err := m.Get(CRIULaunch)
+			if err != nil {
+				sylog.Fatalf("can't get %v, %e", CRIULaunch, err)
+			}
+			if err := ExportOptions(e.GetConfigPath()); err != nil {
+				sylog.Fatalf("can't export options, %e", err)
+			}
+		}
+		if CRIURestart != "" {
+			// load the options from the checkpoint directory
+			m := criu.NewManager()
+			e, err := m.Get(CRIURestart)
+			if err != nil {
+				sylog.Fatalf("can't get %v, %e", CRIULaunch, err)
+			}
+			if err := ImportOptions(e.GetConfigPath()); err != nil {
+				sylog.Fatalf("can't export options, %e", err)
 			}
 		}
 		execStarter(cmd, image, a, name)

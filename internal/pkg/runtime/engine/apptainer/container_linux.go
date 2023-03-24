@@ -21,6 +21,7 @@ import (
 
 	"github.com/apptainer/apptainer/internal/pkg/buildcfg"
 	"github.com/apptainer/apptainer/internal/pkg/cgroups"
+	"github.com/apptainer/apptainer/internal/pkg/checkpoint/criu"
 	"github.com/apptainer/apptainer/internal/pkg/plugin"
 	"github.com/apptainer/apptainer/internal/pkg/runtime/engine/apptainer/rpc/client"
 	"github.com/apptainer/apptainer/internal/pkg/util/fs"
@@ -2281,7 +2282,7 @@ func (c *container) prepareNetworkSetup(system *mount.System, pid int) (func(con
 	// Otherwise start checking what's permitted for the current user
 	euid := os.Geteuid()
 	allowedNetUnpriv := false
-	if euid != 0 {
+	if euid != 0 && !c.engine.EngineConfig.GetMacvlan() {
 		// Is the user permitted in the list of unpriv users / groups permitted to use CNI?
 		allowedNetUser, err := user.UIDInList(euid, c.engine.EngineConfig.File.AllowNetUsers)
 		if err != nil {
@@ -2305,7 +2306,12 @@ func (c *container) prepareNetworkSetup(system *mount.System, pid int) (func(con
 		allowedNetUnpriv = (allowedNetUser || allowedNetGroup) && allowedNetNetwork
 	}
 
-	if (c.userNS || euid != 0) && !fakeroot && !allowedNetUnpriv {
+	// TODO: use some more safe way
+	if c.engine.EngineConfig.GetMacvlan() {
+		allowedNetUnpriv = true
+	}
+
+	if ((c.userNS || euid != 0) && !fakeroot && !allowedNetUnpriv) {
 		return nil, fmt.Errorf("network requires root or --fakeroot, non-root users can only use --network=%s unless permitted by the administrator", noneNet)
 	}
 
@@ -2338,6 +2344,20 @@ func (c *container) prepareNetworkSetup(system *mount.System, pid int) (func(con
 	if cniPath.Plugin == "" {
 		cniPath.Plugin = defaultCNIPluginPath
 	}
+
+	if c.engine.EngineConfig.GetMacvlan() && c.engine.EngineConfig.GetNetwork() == "macvlan" {
+		criuConfig := c.engine.EngineConfig.GetCRIUConfig()
+
+		if criuConfig.Enabled {
+			m := criu.NewManager()
+			e, err := m.Get(criuConfig.Checkpoint)
+			if err != nil || e == nil {
+				return nil, fmt.Errorf("failed to get criu config: %s", err)
+			}
+			cniPath.Conf = e.Path()
+		}
+	}
+
 
 	setup, err := network.NewSetup(networks, strconv.Itoa(pid), nspath, cniPath)
 	if err != nil {

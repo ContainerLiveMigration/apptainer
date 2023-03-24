@@ -10,6 +10,8 @@
 package cli
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/apptainer/apptainer/pkg/cmdline"
@@ -43,18 +45,19 @@ var (
 	DMTCPLaunch      string
 	DMTCPRestart     string
 
-	CRIULaunch       string
-	CRIURestart      string
+	CRIULaunch  string
+	CRIURestart string
 
 	StartTime int64
 
 	MemDir bool
 
-	UseCRIU        bool
-	CRIUPrivileged bool
-	CRIUPageServer bool
+	UseCRIU               bool
+	CRIUPrivileged        bool
+	CRIUPageServer        bool
 	CRIUPageServerAddress string
-	CRIURestore   bool
+	CRIURestore           bool
+	Macvlan               bool
 
 	IsBoot          bool
 	IsFakeroot      bool
@@ -691,6 +694,7 @@ var actionMemDirFlag = cmdline.Flag{
 	Usage:        "criu store checkpoint at memory directory (experimental)",
 	EnvKeys:      []string{"MEM_DIR"},
 }
+
 // --criu-launch
 var actionCRIULaunchFlag = cmdline.Flag{
 	ID:           "actionCRIULaunchFlag",
@@ -736,7 +740,7 @@ var actionPageServerAddressFlag = cmdline.Flag{
 	ID:           "actionPageServerAddressFlag",
 	Value:        &CRIUPageServerAddress,
 	DefaultValue: "",
-	Name:		 "address",
+	Name:         "address",
 	Usage:        "address of the CRIU page server",
 	EnvKeys:      []string{"CRIU_PAGE_SERVER_ADDRESS"},
 }
@@ -759,6 +763,15 @@ var actionCRIUPrivilegedFlag = cmdline.Flag{
 	Name:         "privileged",
 	Usage:        "run criu with root privileges",
 	EnvKeys:      []string{"PRIVILEGED"},
+}
+
+var actionMacvlanFlag = cmdline.Flag{
+	ID:           "actionMacvlanFlag",
+	Value:        &Macvlan,
+	DefaultValue: false,
+	Name:         "macvlan",
+	Usage:        "create a macvlan interface for the container",
+	EnvKeys:      []string{"MACVLAN"},
 }
 
 func init() {
@@ -840,4 +853,67 @@ func init() {
 		cmdManager.RegisterFlagForCmd(&actionEnvFileFlag, actionsInstanceCmd...)
 		cmdManager.RegisterFlagForCmd(&actionNoUmaskFlag, actionsInstanceCmd...)
 	})
+}
+
+// jsonConfig is the JSON representation of a configuration file.
+type jsonConfig struct {
+	BindPaths    *[]string `json:"bindPaths,omitempty"`
+	Macvlan      *bool     `json:"macvlan,omitempty"`
+	Network      *string   `json:"network,omitempty"`
+	NetNamespace *bool     `json:"netNamespace,omitempty"`
+}
+
+func ExportOptions(path string) error {
+	// open path
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("while creating file %s: %v", path, err)
+	}
+	defer f.Close()
+	j := jsonConfig{
+		BindPaths:    &BindPaths,
+		Macvlan:      &Macvlan,
+		Network:      &Network,
+		NetNamespace: &NetNamespace,
+	}
+	fmt.Println(j)
+	// write j to f
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(j); err != nil {
+		return fmt.Errorf("while encoding to JSON: %v", err)
+	}
+	return nil
+}
+
+func ImportOptions(path string) error {
+	// read path to jsonConfig
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("while opening file %s: %v", path, err)
+	}
+	defer f.Close()
+	j := jsonConfig{}
+	dec := json.NewDecoder(f)
+	if err := dec.Decode(&j); err != nil {
+		return fmt.Errorf("while decoding JSON: %v", err)
+	}
+	// set global variables
+	if j.BindPaths != nil {
+		BindPaths = *j.BindPaths
+		fmt.Println(BindPaths)
+	}
+	if j.Macvlan != nil {
+		Macvlan = *j.Macvlan
+		fmt.Println(Macvlan)
+	}
+	if j.Network != nil {
+		Network = *j.Network
+		fmt.Println(Network)
+	}
+	if j.NetNamespace != nil {
+		NetNamespace = *j.NetNamespace
+		fmt.Println(NetNamespace)
+	}
+	return nil
 }
