@@ -901,19 +901,19 @@ func ImportOptions(path string) error {
 	// set global variables
 	if j.BindPaths != nil {
 		BindPaths = *j.BindPaths
-		fmt.Println(BindPaths)
+		// fmt.Println(BindPaths)
 	}
 	if j.Macvlan != nil {
 		Macvlan = *j.Macvlan
-		fmt.Println(Macvlan)
+		// fmt.Println(Macvlan)
 	}
 	if j.Network != nil {
 		Network = *j.Network
-		fmt.Println(Network)
+		// fmt.Println(Network)
 	}
 	if j.NetNamespace != nil {
 		NetNamespace = *j.NetNamespace
-		fmt.Println(NetNamespace)
+		// fmt.Println(NetNamespace)
 	}
 	return nil
 }
